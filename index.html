@@ -94,7 +94,8 @@ a{color:var(--blu)}
         <div style="flex:1;min-width:130px"><label>Telefono</label><input id="pg-cli-tel" type="tel" placeholder="+39 333 0000000"></div>
       </div>
     </div>
-    <div id="pg-preview" class="muted" style="margin:14px 0">Cerca e seleziona un prodotto.</div>
+    <div style="margin:12px 0"><label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Metodo di pagamento</label><select id="pg-metodo" style="width:100%;padding:11px;border:1px solid rgba(0,0,0,.15);border-radius:9px;font-family:inherit;background:#fff"><option value="carta">Carta di credito (SumUp)</option><option value="paypal">PayPal</option></select></div>
+        <div id="pg-preview" class="muted" style="margin:14px 0">Cerca e seleziona un prodotto.</div>
     <button class="btn" id="pg-genera-btn" onclick="generaPagamento()">Genera link di pagamento</button>
     <div id="pg-risultato" style="margin-top:14px"></div>
   </div>
@@ -295,7 +296,7 @@ async function generaPagamento(){
   const btn=document.getElementById('pg-genera-btn'); btn.disabled=true; const _t=btn.innerHTML; btn.innerHTML='<span class="spin"></span> Creo il pagamento…'
   const out=document.getElementById('pg-risultato'); out.innerHTML=''
   try{
-    const r=await db.functions.invoke('crea-pagamento',{ body:{ prodottoId:p.id, area:_PG_AREA, venditoreId:(MIO_D&&MIO_D._id)||'', venditoreNome:(MIO_D&&MIO_D.nome)||'', usoPersonale:uso, cliente:cliente } })
+    const r=await db.functions.invoke('crea-pagamento',{ body:{ prodottoId:p.id, area:_PG_AREA, venditoreId:(MIO_D&&MIO_D._id)||'', venditoreNome:(MIO_D&&MIO_D.nome)||'', usoPersonale:uso, metodo:((document.getElementById('pg-metodo')||{}).value||'carta'), cliente:cliente } })
     const d=r.data||{}
     if(r.error||d.error||!d.url){ throw new Error(d.error||(r.error&&r.error.message)||'Errore creazione pagamento') }
     const url=d.url

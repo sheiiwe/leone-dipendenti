@@ -70,12 +70,22 @@ a{color:var(--blu)}
   <button id="nv-profilo" class="on" onclick="vai('profilo')">Profilo</button>
   <button id="nv-bacheca" onclick="vai('bacheca')">Comunicazioni</button>
   <button id="nv-buste" onclick="vai('buste')">Buste paga</button>
+  <button id="nv-listino" onclick="vai('listino')">Listino</button>
   <button id="nv-pagamenti" onclick="vai('pagamenti')">Pagamenti</button>
 </div>
 
 <div id="screen-profilo" class="wrap hidden"></div>
 <div id="screen-bacheca" class="wrap hidden"><div id="bacheca-lista"></div></div>
 <div id="screen-buste" class="wrap hidden"><div id="buste-lista"></div></div>
+
+<div id="screen-listino" class="wrap hidden">
+  <div class="card">
+    <h2>Listino completo</h2>
+    <p class="muted">Tutti i prodotti/servizi del catalogo Leone Consulting.</p>
+    <input id="listino-search" type="text" placeholder="🔍 Cerca prodotto o categoria..." oninput="renderListinoDip(this.value)" style="margin-top:10px">
+  </div>
+  <div id="listino-lista-dip"></div>
+</div>
 
 <div id="screen-pagamenti" class="wrap hidden">
   <div class="card">
@@ -89,7 +99,7 @@ a{color:var(--blu)}
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-weight:600;cursor:pointer;color:var(--text)"><input type="checkbox" id="pg-uso-personale" onchange="_pgToggleUso()" style="width:auto;margin:0"> 🛒 Compro per me stesso (uso personale)</label>
     <div id="pg-cliente-box">
       <div style="display:flex;gap:10px;flex-wrap:wrap">
-        <div style="flex:1;min-width:160px"><label>Nome cliente</label><input id="pg-cli-nome" type="text" placeholder="Mario Rossi"></div>
+        <div style="flex:1;min-width:160px"><label style="display:flex;align-items:center;gap:6px">Nome cliente <button type="button" onclick="_apriRubrica('pg')" title="Rubrica clienti" style="background:#eef2f9;border:1px solid #d0d7e2;border-radius:6px;padding:2px 8px;cursor:pointer;font-size:12px;font-family:inherit">🔍 Rubrica</button></label><input id="pg-cli-nome" type="text" placeholder="Mario Rossi"></div>
         <div style="flex:1;min-width:160px"><label>Email cliente</label><input id="pg-cli-email" type="email" placeholder="mario@email.com"></div>
         <div style="flex:1;min-width:130px"><label>Telefono</label><input id="pg-cli-tel" type="tel" placeholder="+39 333 0000000"></div>
       </div>
@@ -175,13 +185,14 @@ async function avvia(session){
 }
 
 // ---- NAV ----
-const _NV=['profilo','bacheca','buste','pagamenti']
+const _NV=['profilo','bacheca','buste','listino','pagamenti']
 function vai(t){
   _NV.forEach(x=>{ const b=document.getElementById('nv-'+x); if(b) b.classList.toggle('on',x===t); const s=document.getElementById('screen-'+x); if(s) s.classList.toggle('hidden',x!==t) })
   window.scrollTo({top:0})
   if(t==='profilo') renderProfilo()
   if(t==='bacheca') caricaBacheca()
   if(t==='buste') caricaBuste()
+  if(t==='listino') caricaListinoDip()
   if(t==='pagamenti'){ caricaProdottiVendibili(); caricaMieiPagamenti() }
 }
 
@@ -243,6 +254,35 @@ async function caricaBuste(){
   box.innerHTML=h
 }
 
+// ====== LISTINO DIPENDENTE (vista completa) ======
+let _LIST_DIP=[], _LIST_DIP_LOADED=false
+async function caricaListinoDip(){
+  const box=document.getElementById('listino-lista-dip'); if(!box) return
+  if(_LIST_DIP_LOADED){ renderListinoDip(document.getElementById('listino-search')&&document.getElementById('listino-search').value||''); return }
+  box.innerHTML='<div class="card muted">Caricamento\u2026</div>'
+  try{ const r=await db.from('listino').select('*').limit(1); _LIST_DIP=(r.data&&r.data[0]&&r.data[0].data&&r.data[0].data.items)||[] }catch(e){ _LIST_DIP=[] }
+  _LIST_DIP_LOADED=true
+  renderListinoDip('')
+}
+function _provDip(p){ if(p.tipo==='percentuale'){ return (p.prov!=null?(p.prov+'%'):'\u2014') } return (p.prov!=null && p.prov!=='')?_eur(p.prov):'\u2014' }
+function renderListinoDip(filtro){
+  const box=document.getElementById('listino-lista-dip'); if(!box) return
+  const q=(filtro||'').toLowerCase().trim()
+  let items=_LIST_DIP||[]
+  if(q) items=items.filter(p=>((p.nome||'')+' '+(p.cat||'')+' '+(p.piatt||'')).toLowerCase().includes(q))
+  if(!items.length){ box.innerHTML='<div class="card muted">'+(q?'Nessun risultato.':'Nessun prodotto disponibile.')+'</div>'; return }
+  const grp={}; items.forEach(p=>{ const c=p.cat||'Altro'; (grp[c]=grp[c]||[]).push(p) })
+  let html=''
+  Object.keys(grp).sort().forEach(cat=>{
+    html+='<h3 style="margin:16px 0 8px">'+esc(cat)+'</h3>'
+    grp[cat].forEach(p=>{
+      const prezzo=(p.prezzo!=null&&p.prezzo!=='')?_eur(p.prezzo):'su richiesta'
+      const prov=_provDip(p)
+      html+='<div class="card" style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(p.nome||'Prodotto')+'</div>'+(p.piatt?'<div style="font-size:12px;color:var(--text2)">'+esc(p.piatt)+'</div>':'')+'<div style="font-size:12px;color:var(--green);font-weight:700;margin-top:4px">Provvigione: '+prov+'</div></div><div style="font-weight:700;color:var(--blu);white-space:nowrap">'+prezzo+'</div></div>'
+    })
+  })
+  box.innerHTML=html
+}
 // ====== PAGAMENTI (dipendente venditore) ======
 const _PG_AREA='dip'
 let _PG_PRODOTTI=[], _PG_SEL_ID=''
@@ -287,12 +327,105 @@ function _pgPreview(){
   if(uso){ el.innerHTML='<b>'+esc(p.nome)+'</b><br><b>Uso personale</b> \u00b7 tu paghi <b>'+_eur(prezzo-prov)+'</b> <span class="muted">(prezzo '+_eur(prezzo)+' meno la tua provvigione '+_eur(prov)+')</span>' }
   else { el.innerHTML='<b>'+esc(p.nome)+'</b><br>Il cliente paga <b>'+_eur(prezzo)+'</b> \u00b7 la tua provvigione: <b>'+_eur(prov)+'</b> ('+pct+'%)' }
 }
+// ---- Popup rubrica clienti (condiviso) ----
+async function _apriRubrica(applyTo){
+  // applyTo: 'pg' (pagamenti) o 'rd' (richiesta docenti)
+  let ov=document.getElementById('cli-rub-ov')
+  if(!ov){
+    ov=document.createElement('div'); ov.id='cli-rub-ov'
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:80;display:flex;align-items:center;justify-content:center;padding:16px'
+    ov.innerHTML='<div style="background:#fff;border-radius:14px;max-width:520px;width:100%;max-height:80vh;display:flex;flex-direction:column;font-family:inherit"><div style="padding:16px 18px;border-bottom:1px solid #eee;display:flex;align-items:center;gap:10px"><h2 style="margin:0;font-size:17px;flex:1">Rubrica clienti</h2><button onclick="document.getElementById(\u0027cli-rub-ov\u0027).remove()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#666">×</button></div><div style="padding:12px 16px 8px"><input id="cli-rub-search" type="text" placeholder="\u{1F50D} Cerca nome, email, telefono..." oninput="_cliRubCerca(this.value)" autofocus style="width:100%;padding:11px;border:1px solid rgba(0,0,0,.15);border-radius:9px;font-family:inherit"></div><div id="cli-rub-lista" style="overflow:auto;padding:0 16px 16px"><div style="padding:20px;text-align:center;color:#666">Scrivi almeno 2 caratteri per cercare…</div></div></div>'
+    document.body.appendChild(ov)
+  }
+  ov.dataset.apply=applyTo
+}
+let _RUB_TIMER=null
+async function _cliRubCerca(q){
+  clearTimeout(_RUB_TIMER)
+  const box=document.getElementById('cli-rub-lista'); if(!box) return
+  q=(q||'').trim()
+  if(q.length<2){ box.innerHTML='<div style="padding:20px;text-align:center;color:#666">Scrivi almeno 2 caratteri per cercare…</div>'; return }
+  box.innerHTML='<div style="padding:20px;text-align:center;color:#666">Cerco…</div>'
+  _RUB_TIMER=setTimeout(async()=>{
+    try{
+      const r=await db.functions.invoke('clienti',{ body:{ azione:'cerca', q:q } })
+      const rows=(r.data&&r.data.clienti)||[]
+      if(!rows.length){ box.innerHTML='<div style="padding:20px;text-align:center;color:#666">Nessun cliente trovato.</div>'; return }
+      box.innerHTML=rows.map(c=>'<div onmousedown="_cliRubPick(\u0027'+encodeURIComponent(JSON.stringify(c))+'\u0027)" style="padding:12px;border:1px solid #eee;border-radius:9px;margin-bottom:8px;cursor:pointer;background:#fafaf7"><div style="font-weight:700">'+esc((c.nome||'')+' '+(c.cognome||''))+'</div><div style="font-size:13px;color:#555;margin-top:2px">'+esc(c.email||'—')+'</div><div style="font-size:13px;color:#555">'+esc(c.telefono||'—')+'</div></div>').join('')
+    }catch(e){ box.innerHTML='<div style="padding:20px;text-align:center;color:#c33">Errore ricerca.</div>' }
+  }, 200)
+}
+function _cliRubPick(payload){
+  const ov=document.getElementById('cli-rub-ov'); const apply=ov?ov.dataset.apply:'pg'
+  try{
+    const c=JSON.parse(decodeURIComponent(payload))
+    if(apply==='rd'){
+      const n=document.getElementById('rd-nome'); if(n) n.value=c.nome||''
+      const g=document.getElementById('rd-cog'); if(g) g.value=c.cognome||''
+      const e=document.getElementById('rd-email'); if(e) e.value=c.email||''
+      const t=document.getElementById('rd-tel'); if(t) t.value=c.telefono||''
+    } else {
+      const nn=document.getElementById('pg-cli-nome'); if(nn) nn.value=((c.nome||'')+(c.cognome?(' '+c.cognome):'')).trim()
+      const em=document.getElementById('pg-cli-email'); if(em) em.value=c.email||''
+      const tt=document.getElementById('pg-cli-tel'); if(tt) tt.value=c.telefono||''
+    }
+  }catch(e){}
+  if(ov) ov.remove()
+}
+// ---- Autocompletamento cliente pagamenti (condiviso) ----
+let _CLI_PG_TIMER=null
+function _pgSuggBox(){
+  let b=document.getElementById('pg-sugg'); if(b) return b
+  b=document.createElement('div'); b.id='pg-sugg'
+  b.style.cssText='position:absolute;background:#fff;border:1px solid var(--border);border-radius:9px;box-shadow:0 6px 18px rgba(0,0,0,.08);z-index:60;display:none;max-height:220px;overflow:auto'
+  document.body.appendChild(b); return b
+}
+async function _cliCercaPg(input){
+  clearTimeout(_CLI_PG_TIMER)
+  const q=(input.value||'').trim()
+  const box=_pgSuggBox()
+  if(q.length<2){ box.style.display='none'; return }
+  _CLI_PG_TIMER=setTimeout(async()=>{
+    try{
+      const r=await db.functions.invoke('clienti',{ body:{ azione:'cerca', q:q } })
+      const rows=(r.data&&r.data.clienti)||[]
+      if(!rows.length){ box.style.display='none'; return }
+      const rect=input.getBoundingClientRect()
+      box.style.left=(rect.left+window.scrollX)+'px'
+      box.style.top=(rect.bottom+window.scrollY)+'px'
+      box.style.width=rect.width+'px'
+      box.innerHTML=rows.map(c=>'<div style="padding:10px 12px;cursor:pointer;border-bottom:1px solid #f0efe9" onmousedown="_cliPickPg(\u0027'+encodeURIComponent(JSON.stringify(c))+'\u0027)"><div style="font-weight:600">'+esc((c.nome||'')+' '+(c.cognome||''))+'</div><div style="font-size:12px;color:#6b6b66">'+esc(c.email||'')+' \u00b7 '+esc(c.telefono||'')+'</div></div>').join('')
+      box.style.display='block'
+    }catch(e){ box.style.display='none' }
+  }, 220)
+}
+function _cliPickPg(payload){
+  try{ const c=JSON.parse(decodeURIComponent(payload))
+    const nn=document.getElementById('pg-cli-nome'); if(nn) nn.value=((c.nome||'')+(c.cognome?(' '+c.cognome):'')).trim()
+    const em=document.getElementById('pg-cli-email'); if(em) em.value=c.email||''
+    const tt=document.getElementById('pg-cli-tel'); if(tt) tt.value=c.telefono||''
+  }catch(e){}
+  const box=document.getElementById('pg-sugg'); if(box) box.style.display='none'
+}
+function _cliHidePg(){ setTimeout(()=>{ const box=document.getElementById('pg-sugg'); if(box) box.style.display='none' }, 200) }
+function _bindPgCli(){
+  ['pg-cli-nome','pg-cli-email','pg-cli-tel'].forEach(id=>{
+    const el=document.getElementById(id); if(!el||el._cliBound) return
+    el._cliBound=true
+    el.addEventListener('input', ()=>_cliCercaPg(el))
+    el.addEventListener('focus', ()=>_cliCercaPg(el))
+    el.addEventListener('blur', _cliHidePg)
+  })
+}
+document.addEventListener('DOMContentLoaded', _bindPgCli)
+setTimeout(_bindPgCli, 800)
 async function generaPagamento(){
   const p=_pgProdSel()
   if(!p){ alert('Seleziona un prodotto.'); return }
   const uso=document.getElementById('pg-uso-personale').checked
   const cliente={ nome:document.getElementById('pg-cli-nome').value.trim(), email:document.getElementById('pg-cli-email').value.trim(), tel:document.getElementById('pg-cli-tel').value.trim() }
   if(!uso && !cliente.nome){ alert('Inserisci il nome del cliente (oppure spunta \u0022uso personale\u0022).'); return }
+  if(!uso && cliente.nome){ try{ const parts=cliente.nome.split(/\s+/); await db.functions.invoke('clienti',{ body:{ azione:'salva', nome:parts[0]||cliente.nome, cognome:parts.slice(1).join(' '), email:cliente.email, telefono:cliente.tel } }) }catch(e){} }
   const btn=document.getElementById('pg-genera-btn'); btn.disabled=true; const _t=btn.innerHTML; btn.innerHTML='<span class="spin"></span> Creo il pagamento…'
   const out=document.getElementById('pg-risultato'); out.innerHTML=''
   try{

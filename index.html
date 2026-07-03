@@ -245,12 +245,13 @@ async function caricaBuste(){
   const mioNome=((MIO_D&&MIO_D.nome)||'').trim().toLowerCase()
   buste=buste.filter(b=>((b.nomeDip||'').trim().toLowerCase())===mioNome)
   if(!buste.length){ box.innerHTML='<div class="card"><h2>Buste paga</h2><p class="muted">Nessuna busta paga disponibile al momento.</p></div>'; return }
-  let h='<div class="card"><h2>Le tue buste paga</h2><table class="tbl"><thead><tr><th>Periodo</th><th>Ore</th><th>Netto in busta</th></tr></thead><tbody>'
+  let h='<div class="card"><h2>Le tue buste paga</h2><table class="tbl"><thead><tr><th>Periodo</th><th>Ore</th><th>Netto in busta</th><th>Documento</th></tr></thead><tbody>'
   for(const b of buste){
     const netto = b.netto!=null?b.netto:(b.nettoBusta!=null?b.nettoBusta:b.netto_in_busta)
-    h+='<tr><td>'+esc(b.mese||'')+'</td><td>'+esc(b.ore!=null?b.ore:'')+'</td><td>'+(netto!=null?eur(netto):'\u2014')+'</td></tr>'
+    const doc = b.pdf_path ? '<a class="btn ghost" style="padding:4px 10px;font-size:12px;text-decoration:none" href="'+SUPA_URL+'/storage/v1/object/public/contratti/'+b.pdf_path+'" target="_blank" rel="noopener">\ud83d\udcc4 Apri</a>' : '\u2014'
+    h+='<tr><td>'+esc(b.mese||'')+'</td><td>'+esc(b.ore!=null?b.ore:'')+'</td><td>'+(netto!=null?eur(netto):'\u2014')+'</td><td>'+doc+'</td></tr>'
   }
-  h+='</tbody></table><p class="muted" style="font-size:12px;margin-top:12px">Il cedolino PDF ufficiale ti viene consegnato dall\u0027ufficio. La versione scaricabile dal portale arriver\u00e0 a breve.</p></div>'
+  h+='</tbody></table><p class="muted" style="font-size:12px;margin-top:12px">Apri il documento e usa il bottone \u201cStampa/Salva PDF\u201d in alto per salvare la busta sul tuo dispositivo.</p></div>'
   box.innerHTML=h
 }
 

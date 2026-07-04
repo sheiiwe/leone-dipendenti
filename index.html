@@ -48,7 +48,7 @@ a{color:var(--blu)}
 </head>
 <body>
 
-<header class="top"><div class="wrap"><div style="display:flex;align-items:center;gap:12px"><img class="js-logo logo-sm" alt="LC"><div><h1>Leone Consulting</h1><div class="sub">Portale Dipendenti</div></div></div><div style="display:flex;gap:8px"><button id="btn-logout" class="btn btn-ghost btn-sm hidden" onclick="logout()">Esci</button></div></div></header>
+<header class="top"><div class="wrap"><div style="display:flex;align-items:center;gap:12px"><img class="js-logo logo-sm" alt="LC"><div><h1>Leone Consulting</h1><div class="sub">Portale Dipendenti</div></div></div><div style="display:flex;gap:8px"><button class="btn btn-ghost btn-sm" onclick="tornaIndietro()">← Indietro</button><button id="btn-logout" class="btn btn-ghost btn-sm hidden" onclick="logout()">Esci</button></div></div></header>
 
 <!-- AUTH -->
 <div id="screen-auth" class="wrap">
@@ -158,6 +158,7 @@ async function signup(){
   }catch(e){ msg('login-msg', tradErr(e)) }
   b.disabled=false; b.textContent='Primo accesso'
 }
+function tornaIndietro(){ if(window.history.length>1){ history.back() } else { location.href='https://area.leoneconsultingitalia.it' } }
 async function logout(){ try{ await db.auth.signOut() }catch(e){} location.reload() }
 
 async function avvia(session){

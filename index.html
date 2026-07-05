@@ -104,7 +104,7 @@ a{color:var(--blu)}
         <div style="flex:1;min-width:130px"><label>Telefono</label><input id="pg-cli-tel" type="tel" placeholder="+39 333 0000000"></div>
       </div>
     </div>
-    <div style="margin:12px 0"><label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Metodo di pagamento</label><select id="pg-metodo" style="width:100%;padding:11px;border:1px solid rgba(0,0,0,.15);border-radius:9px;font-family:inherit;background:#fff"><option value="carta">Carta di credito (SumUp)</option><option value="paypal">PayPal</option></select></div>
+    <div style="margin:12px 0"><label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px">Metodo di pagamento</label><select id="pg-metodo" style="width:100%;padding:11px;border:1px solid rgba(0,0,0,.15);border-radius:9px;font-family:inherit;background:#fff"><option value="carta">Carta di credito (SumUp)</option><option value="paypal">PayPal</option><option value="contanti">💵 Contanti (da confermare)</option><option value="bonifico">🏦 Bonifico (da confermare)</option></select></div>
         <div id="pg-preview" class="muted" style="margin:14px 0">Cerca e seleziona un prodotto.</div>
     <button class="btn" id="pg-genera-btn" onclick="generaPagamento()">Genera link di pagamento</button>
     <div id="pg-risultato" style="margin-top:14px"></div>
@@ -433,7 +433,13 @@ async function generaPagamento(){
   try{
     const r=await db.functions.invoke('crea-pagamento',{ body:{ prodottoId:p.id, area:_PG_AREA, venditoreId:(MIO_D&&MIO_D._id)||'', venditoreNome:(MIO_D&&MIO_D.nome)||'', usoPersonale:uso, metodo:((document.getElementById('pg-metodo')||{}).value||'carta'), cliente:cliente } })
     const d=r.data||{}
-    if(r.error||d.error||!d.url){ throw new Error(d.error||(r.error&&r.error.message)||'Errore creazione pagamento') }
+    if(r.error||d.error){ throw new Error(d.error||(r.error&&r.error.message)||'Errore creazione pagamento') }
+    if(d.attesa){
+      const nome=d.metodo==='bonifico'?'bonifico':'contanti'
+      out.innerHTML='<div class="msg" style="background:#fdf3e3;border:1px solid #e6cf9c;color:#7a5512">\u23f3 Richiesta di pagamento in '+nome+' inviata ('+_eur(d.importo)+'). Leone Consulting confermer\u00e0 al ricevimento. Comparir\u00e0 qui sotto come \u0022da confermare\u0022.</div>'
+      caricaMieiPagamenti(); btn.disabled=false; btn.innerHTML=_t; return
+    }
+    if(!d.url){ throw new Error('Errore creazione pagamento') }
     const url=d.url
     out.innerHTML='<div style="background:#e8f6ee;border:1px solid #bfe6cf;border-radius:9px;padding:12px">'
       +'<div style="font-weight:700;margin-bottom:8px;color:#1d7a45">\u2705 Link di pagamento pronto ('+_eur(d.importo)+')</div>'
@@ -456,7 +462,7 @@ async function caricaMieiPagamenti(){
     if(!rows.length){ box.innerHTML='<p class="muted">Ancora nessuna vendita.</p>'; return }
     box.innerHTML=rows.map(function(p){
       const pagato=p.stato==='paid'
-      const badge=pagato?'<span style="background:var(--green);color:#fff;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700">PAGATO</span>':(p.stato==='failed'?'<span style="background:#bbb;color:#fff;padding:2px 8px;border-radius:999px;font-size:12px">fallito</span>':'<span style="background:var(--oro);color:#5a4300;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700">in attesa</span>')
+      const badge=pagato?'<span style="background:var(--green);color:#fff;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700">PAGATO</span>':(p.stato==='attesa_contanti'?'<span style="background:var(--oro);color:#5a4300;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700">'+(p.metodo==='bonifico'?'🏦 bonifico da confermare':'💵 contanti da confermare')+'</span>':(p.stato==='failed'?'<span style="background:#bbb;color:#fff;padding:2px 8px;border-radius:999px;font-size:12px">fallito</span>':'<span style="background:var(--oro);color:#5a4300;padding:2px 8px;border-radius:999px;font-size:12px;font-weight:700">in attesa</span>'))
       const chi=p.uso_personale?'<span class="muted">(uso personale)</span>':esc(p.cliente_nome||'\u2014')
       const prov=p.uso_personale?'':(' \u00b7 provv. '+_eur(p.provvigione_importo))
       const data=(p.created_at||'').slice(0,10)

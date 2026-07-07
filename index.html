@@ -95,6 +95,13 @@ a{color:var(--blu)}
     <select id="pg-select" onchange="_pgPickFromSelect()" style="margin-top:10px"><option value="">— Oppure scegli dall'elenco —</option></select>
   </div>
   <div id="pg-prod-lista"></div>
+  <div id="pg-var-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;align-items:center;justify-content:center;padding:16px">
+    <div style="background:#fff;border-radius:16px;max-width:440px;width:100%;max-height:85vh;overflow:auto;padding:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h3 style="margin:0" id="pg-var-title"></h3><button onclick="_pgCloseVar()" style="border:none;background:#eee;border-radius:8px;width:32px;height:32px;cursor:pointer;font-size:18px">×</button></div>
+      <p style="margin:0 0 12px;color:#6b6b66;font-size:13px">Seleziona l'opzione che ti serve:</p>
+      <div id="pg-var-body"></div>
+    </div>
+  </div>
   <div class="card">
     <label style="display:flex;align-items:center;gap:8px;margin-bottom:12px;font-weight:600;cursor:pointer;color:var(--text)"><input type="checkbox" id="pg-uso-personale" onchange="_pgToggleUso()" style="width:auto;margin:0"> 🛒 Compro per me stesso (uso personale)</label>
     <div id="pg-cliente-box">
@@ -292,12 +299,12 @@ function renderListinoDip(filtro){
 }
 // ====== PAGAMENTI (dipendente venditore) ======
 const _PG_AREA='dip'
-let _PG_PRODOTTI=[], _PG_SEL_ID=''
+let _PG_PRODOTTI=[], _PG_ALL=[], _PG_SEL_ID=''
 function _eur(n){ return '\u20ac '+Number(n||0).toFixed(2).replace('.',',') }
 async function caricaProdottiVendibili(){
   _PG_SEL_ID=''
   const s=document.getElementById('pg-search'); if(s) s.value=''
-  try{ const r=await db.from('prodotti_pagamento').select('*').eq('attivo',true).contains('aree',[_PG_AREA]).order('nome'); if(r.error) throw r.error; _PG_PRODOTTI=r.data||[] }
+  try{ const r=await db.from('prodotti_pagamento').select('*').eq('attivo',true).contains('aree',[_PG_AREA]).order('nome'); if(r.error) throw r.error; _PG_ALL=r.data||[]; _PG_PRODOTTI=_pgCollapse(_PG_ALL) }
   catch(e){ _PG_PRODOTTI=[] }
   _pgRenderSelect(); _pgFilter(''); _pgPreview()
 }
@@ -321,8 +328,30 @@ function _pgFilter(q){
       +'</div>'
   }).join('')
 }
-function _pgPick(id){ _PG_SEL_ID=(id===_PG_SEL_ID&&id!==''?'':id); const s=document.getElementById('pg-select'); if(s) s.value=_PG_SEL_ID; _pgFilter((document.getElementById('pg-search')||{}).value||''); _pgPreview(); const pv=document.getElementById('pg-preview'); if(_PG_SEL_ID&&pv) pv.scrollIntoView({behavior:'smooth',block:'center'}) }
-function _pgProdSel(){ return _PG_PRODOTTI.find(p=>p.id===_PG_SEL_ID)||null }
+function _pgPick(id){ if(String(id).indexOf('grp:')===0){ _pgOpenGroup(id.slice(4)); return } _PG_SEL_ID=(id===_PG_SEL_ID&&id!==''?'':id); const s=document.getElementById('pg-select'); if(s) s.value=_PG_SEL_ID; _pgFilter((document.getElementById('pg-search')||{}).value||''); _pgPreview(); const pv=document.getElementById('pg-preview'); if(_PG_SEL_ID&&pv) pv.scrollIntoView({behavior:'smooth',block:'center'}) }
+function _pgCollapse(list){
+  const cnt={}; list.forEach(p=>{ const g=(p.gruppo||'').trim(); if(g) cnt[g]=(cnt[g]||0)+1 })
+  const out=[], done={}
+  list.forEach(p=>{
+    const g=(p.gruppo||'').trim()
+    if(g && cnt[g]>1){ if(done[g]) return; done[g]=true
+      const items=list.filter(x=>(x.gruppo||'').trim()===g)
+      const min=Math.min.apply(null, items.map(x=>Number(x.prezzo||0)))
+      out.push({ id:'grp:'+g, nome:g+' ('+items.length+' opzioni)', descrizione:'Tocca per scegliere l\u0027opzione', prezzo:min, _group:true, _items:items })
+    } else out.push(p)
+  })
+  return out
+}
+function _pgOpenGroup(g){
+  const items=_PG_ALL.filter(x=>(x.gruppo||'').trim()===g)
+  const box=document.getElementById('pg-var-body'); if(!box) return
+  document.getElementById('pg-var-title').textContent=g
+  box.innerHTML=items.map(p=>'<div onclick="_pgPickVar(\u0027'+p.id+'\u0027)" style="cursor:pointer;border:1px solid rgba(0,0,0,.12);border-radius:9px;padding:12px;margin-bottom:8px;display:flex;justify-content:space-between;gap:10px;align-items:center"><div><div style="font-weight:700">'+esc(p.nome)+'</div>'+(p.descrizione?'<div style="font-size:12px;color:#6b6b66">'+esc(p.descrizione)+'</div>':'')+'</div><div style="font-weight:700;white-space:nowrap">'+eur(p.prezzo)+'</div></div>').join('')
+  document.getElementById('pg-var-modal').style.display='flex'
+}
+function _pgPickVar(id){ document.getElementById('pg-var-modal').style.display='none'; _pgPick(id) }
+function _pgCloseVar(){ document.getElementById('pg-var-modal').style.display='none' }
+function _pgProdSel(){ return _PG_ALL.find(p=>p.id===_PG_SEL_ID)||null }
 function _pgToggleUso(){ const uso=document.getElementById('pg-uso-personale').checked; const box=document.getElementById('pg-cliente-box'); if(box) box.style.display=uso?'none':'block'; _pgPreview() }
 function _pgPreview(){
   const el=document.getElementById('pg-preview'); if(!el) return

@@ -291,8 +291,11 @@ function renderListinoDip(filtro){
     html+='<h3 style="margin:16px 0 8px">'+esc(cat)+'</h3>'
     grp[cat].forEach(p=>{
       const prezzo=(p.prezzo!=null&&p.prezzo!=='')?_eur(p.prezzo):'su richiesta'
+      const _ann=p.annuale?' <span style="font-size:10px;color:var(--text2);font-weight:400">/anno</span>':''
+      const _annInfo=p.annuale?'<div style="font-size:11px;color:#e65100;font-weight:600">\ud83d\udcc5 Pagamento annuale'+(p.anni?(' \u00b7 '+p.anni+' anni'):'')+'</div>':''
+      const _comp=(p.compagnia||'').trim()?'<div style="font-size:11px;color:#5e35b1;font-weight:600">'+esc(p.compagnia)+'</div>':''
       const prov=_provDip(p)
-      html+='<div class="card" style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(p.nome||'Prodotto')+'</div>'+(p.piatt?'<div style="font-size:12px;color:var(--text2)">'+esc(p.piatt)+'</div>':'')+'<div style="font-size:12px;color:var(--green);font-weight:700;margin-top:4px">Provvigione: '+prov+'</div></div><div style="font-weight:700;color:var(--blu);white-space:nowrap">'+prezzo+'</div></div>'
+      html+='<div class="card" style="display:flex;align-items:center;gap:12px;margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(p.nome||'Prodotto')+'</div>'+(p.piatt?'<div style="font-size:12px;color:var(--text2)">'+esc(p.piatt)+'</div>':'')+_comp+_annInfo+'<div style="font-size:12px;color:var(--green);font-weight:700;margin-top:4px">Provvigione: '+prov+'</div></div><div style="font-weight:700;color:var(--blu);white-space:nowrap">'+prezzo+_ann+'</div></div>'
     })
   })
   box.innerHTML=html
@@ -322,8 +325,8 @@ function _pgFilter(q){
   box.innerHTML=lista.map(function(p){
     const sel=p.id===_PG_SEL_ID
     return '<div class="card" style="display:flex;align-items:center;gap:12px;margin-bottom:8px;cursor:pointer'+(sel?';border-color:var(--blu);box-shadow:inset 0 0 0 1px var(--blu)':'')+'" onclick="_pgPick(\u0027'+p.id+'\u0027)">'
-      +'<div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(p.nome)+'</div>'+(p.descrizione?'<div style="font-size:12px;color:var(--text2)">'+esc(p.descrizione)+'</div>':'')+'</div>'
-      +'<div style="font-weight:700;color:var(--blu);white-space:nowrap">'+_eur(p.prezzo)+'</div>'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:700">'+esc(p.nome)+'</div>'+(p.descrizione?'<div style="font-size:12px;color:var(--text2)">'+esc(p.descrizione)+'</div>':'')+((p.compagnia&&String(p.compagnia).trim())?'<div style="font-size:11px;color:#5e35b1;font-weight:600">'+esc(p.compagnia)+'</div>':'')+(p.annuale?'<div style="font-size:11px;color:#e65100;font-weight:600">\ud83d\udcc5 Pagamento annuale'+(p.anni?(' \u00b7 '+p.anni+' anni'):'')+'</div>':'')+'</div>'
+      +'<div style="font-weight:700;color:var(--blu);white-space:nowrap">'+_eur(p.prezzo)+(p.annuale?'<span style="font-size:10px;font-weight:400;opacity:.7">/anno</span>':'')+'</div>'
       +(sel?'<div style="color:var(--blu);font-weight:800;font-size:18px">\u2713</div>':'')
       +'</div>'
   }).join('')

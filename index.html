@@ -70,6 +70,7 @@ a{color:var(--blu)}
   <button id="nv-profilo" class="on" onclick="vai('profilo')">Profilo</button>
   <button id="nv-bacheca" onclick="vai('bacheca')">Comunicazioni</button>
   <button id="nv-buste" onclick="vai('buste')">Buste paga</button>
+  <button id="nv-documenti" onclick="vai('documenti')">Documenti</button>
   <button id="nv-listino" onclick="vai('listino')">Listino</button>
   <button id="nv-pagamenti" onclick="vai('pagamenti')">Pagamenti</button>
 </div>
@@ -77,6 +78,19 @@ a{color:var(--blu)}
 <div id="screen-profilo" class="wrap hidden"></div>
 <div id="screen-bacheca" class="wrap hidden"><div id="bacheca-lista"></div></div>
 <div id="screen-buste" class="wrap hidden"><div id="buste-lista"></div></div>
+
+<div id="screen-documenti" class="wrap hidden">
+  <div class="card">
+    <h2 style="margin:0 0 4px">📄 Contratti firmati</h2>
+    <p class="muted" style="font-size:13px;margin:0 0 12px">Tutti i contratti firmati digitalmente dell&#39;azienda. Puoi scaricarli e verificarli.</p>
+    <div id="doc-contratti"><p class="muted">Caricamento…</p></div>
+  </div>
+  <div class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px"><h2 style="margin:0">🧾 Fatture emesse</h2><button class="btn ghost btn-sm" onclick="caricaDocumentiDip()">↻ Aggiorna</button></div>
+    <p class="muted" style="font-size:13px;margin:6px 0 12px">Le fatture elettroniche emesse. Controlla che sia tutto in ordine.</p>
+    <div id="doc-fatture"><p class="muted">Caricamento…</p></div>
+  </div>
+</div>
 
 <div id="screen-listino" class="wrap hidden">
   <div class="card">
@@ -198,7 +212,7 @@ async function avvia(session){
 }
 
 // ---- NAV ----
-const _NV=['profilo','bacheca','buste','listino','pagamenti']
+const _NV=['profilo','bacheca','buste','listino','pagamenti','documenti']
 function vai(t){
   _NV.forEach(x=>{ const b=document.getElementById('nv-'+x); if(b) b.classList.toggle('on',x===t); const s=document.getElementById('screen-'+x); if(s) s.classList.toggle('hidden',x!==t) })
   window.scrollTo({top:0})
@@ -206,6 +220,7 @@ function vai(t){
   if(t==='bacheca') caricaBacheca()
   if(t==='buste') caricaBuste()
   if(t==='listino') caricaListinoDip()
+  if(t==='documenti') caricaDocumentiDip()
   if(t==='pagamenti'){ caricaProdottiVendibili(); caricaMieiPagamenti(); caricaDaConfermareDip() }
 }
 
@@ -266,6 +281,62 @@ async function caricaBuste(){
   }
   h+='</tbody></table><p class="muted" style="font-size:12px;margin-top:12px">Apri il documento e usa il bottone \u201cStampa/Salva PDF\u201d in alto per salvare la busta sul tuo dispositivo.</p></div>'
   box.innerHTML=h
+}
+
+// ====== DOCUMENTI DIPENDENTE: contratti firmati + fatture ======
+async function caricaDocumentiDip(){
+  caricaContrattiDip(); caricaFattureDip()
+}
+async function caricaContrattiDip(){
+  const box=document.getElementById('doc-contratti'); if(!box) return
+  try{
+    const r=await db.from('contratti_firme').select('*').order('created_at',{ascending:false}).limit(200)
+    if(r.error) throw r.error
+    const rows=(r.data||[]).map(x=>({_id:x.id, created:x.created_at, ...(x.data||{})}))
+    const firmati=rows.filter(x=>String(x.statoFirma||'').toLowerCase()==='firmato' || x.pdfFirmatoPath)
+    if(!firmati.length){ box.innerHTML='<p class="muted">Nessun contratto firmato al momento.</p>'; return }
+    box.innerHTML=firmati.map(function(c){
+      const data=(c.dataFirma||c.created||'').slice(0,10)
+      const sez=({proc:'Procacciatori',doc:'Docenti',dip:'Dipendenti',stud:'Studenti'})[c.sezione]||esc(c.sezione||'')
+      const path=c.pdfFirmatoPath||c.pdfPath||''
+      const btn=path?'<button class="btn btn-sm" onclick="scaricaDocDip(\'contratti\',\''+esc(path)+'\')">⬇️ Scarica</button>':'<span class="muted" style="font-size:12px">non disponibile</span>'
+      return '<div class="card" style="padding:12px;margin:0 0 8px;border:0.5px solid var(--border)">'
+        +'<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start">'
+        +'<div style="flex:1;min-width:170px"><div style="font-weight:700">'+esc(c.docLabel||c.tipoContratto||'Contratto')+'</div>'
+        +'<div style="font-size:13px;color:var(--text2)">'+esc(c.nomeDestinatario||'—')+(sez?(' · '+sez):'')+'</div>'
+        +'<div style="font-size:12px;color:var(--text2)">Firmato il '+esc(data||'—')+'</div></div>'
+        +'<div>'+btn+'</div></div></div>'
+    }).join('')
+  }catch(e){ box.innerHTML='<p class="msg msg-err">Errore: '+esc((e&&e.message)||e)+'</p>' }
+}
+async function caricaFattureDip(){
+  const box=document.getElementById('doc-fatture'); if(!box) return
+  try{
+    const r=await db.from('pagamenti').select('*').not('fattura_numero','is',null).order('fattura_emessa_at',{ascending:false}).limit(200)
+    if(r.error) throw r.error
+    const rows=r.data||[]
+    if(!rows.length){ box.innerHTML='<p class="muted">Nessuna fattura emessa al momento.</p>'; return }
+    box.innerHTML=rows.map(function(p){
+      const st=p.fattura_stato==='emessa'?'<span class="badge bg">Emessa</span>':(p.fattura_stato==='stornata'?'<span class="badge br">Stornata</span>':(p.fattura_stato==='errore'?'<span class="badge br">Errore</span>':'<span class="badge ba">Bozza</span>'))
+      const data=(p.fattura_emessa_at||p.paid_at||p.created_at||'').slice(0,10)
+      const btn=p.fattura_pdf_path?'<button class="btn btn-sm" onclick="scaricaDocDip(\'contratti\',\''+esc(p.fattura_pdf_path)+'\')">⬇️ PDF</button>':(p.fattura_url?'<a class="btn btn-sm" href="'+esc(p.fattura_url)+'" target="_blank" rel="noopener" style="text-decoration:none">Apri</a>':'<span class="muted" style="font-size:12px">—</span>')
+      return '<div class="card" style="padding:12px;margin:0 0 8px;border:0.5px solid var(--border)">'
+        +'<div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start">'
+        +'<div style="flex:1;min-width:170px"><div style="font-weight:700">Fattura n. '+esc(p.fattura_numero||'—')+'</div>'
+        +'<div style="font-size:13px;color:var(--text2)">'+esc(p.cliente_nome||'—')+' · '+esc(p.prodotto_nome||'')+'</div>'
+        +'<div style="font-size:12px;color:var(--text2)">'+esc(data)+' · <b>'+_eur(p.importo_pagato)+'</b></div></div>'
+        +'<div style="text-align:right">'+st+'<div style="margin-top:6px">'+btn+'</div></div></div></div>'
+    }).join('')
+  }catch(e){ box.innerHTML='<p class="msg msg-err">Errore: '+esc((e&&e.message)||e)+'</p>' }
+}
+async function scaricaDocDip(bucket, path){
+  try{
+    const r=await db.storage.from(bucket).createSignedUrl(path, 300)
+    if(!r.error && r.data && r.data.signedUrl){ window.open(r.data.signedUrl,'_blank'); return }
+    const pub=db.storage.from(bucket).getPublicUrl(path)
+    if(pub && pub.data && pub.data.publicUrl){ window.open(pub.data.publicUrl,'_blank'); return }
+    throw new Error('file non trovato')
+  }catch(e){ alert('Impossibile scaricare il documento: '+((e&&e.message)||e)) }
 }
 
 // ====== LISTINO DIPENDENTE (vista completa) ======

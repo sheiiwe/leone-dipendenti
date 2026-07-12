@@ -625,11 +625,12 @@ async function caricaMieiPagamenti(){
 <script>
 // ===== ASSISTENTE AI LEONE (dipendenti) =====
 const CBOT_AREA='dipendenti'
-const CBOT_CHIPS=['Le mie provvigioni','I miei documenti','Le mie buste paga','Incassi da confermare','Scrivi all\u0027amministrazione']
-let _cbotInit=false, _cbotHist=[], _CBOT_AZ=null
+const CBOT_CHIPS=['Incassi da confermare','Le mie provvigioni','I miei documenti','Le mie buste paga','Scrivi all\u0027amministrazione']
+let _cbotInit=false, _cbotHist=[], _CBOT_AZ=null, _CBOT_REF={}
 
 function _cbotNome(){ return (MIO_D&&MIO_D.nome)||(typeof MIO_EMAIL!=='undefined'?MIO_EMAIL:'')||'' }
 async function _cbotRiepilogo(){ 
+  _CBOT_REF={}
   const R=[]
   const nome=(MIO_D&&MIO_D.nome)||''
   if(nome) R.push('Nome: '+nome)
@@ -639,12 +640,23 @@ async function _cbotRiepilogo(){
     const r=await db.from('pagamenti').select('*').order('created_at',{ascending:false}).limit(100)
     const rows=(r.data||[])
     const prov=rows.reduce((s,p)=>s+(p.uso_personale?0:(Number(p.provvigione_importo)||0)),0)
-    const attesa=rows.filter(p=>p.stato==='attesa_contanti').length
     R.push('Vendite visibili: '+rows.length)
     R.push('Provvigioni totali: \u20ac '+(Math.round(prov*100)/100).toFixed(2).replace('.',','))
-    if(attesa) R.push('Incassi da confermare (contanti/bonifico): '+attesa)
     const fatt=rows.filter(p=>p.fattura_numero).length
-    R.push('Fatture emesse visibili nella sezione Documenti: '+fatt)
+    R.push('Fatture emesse visibili in Documenti: '+fatt)
+    const att=rows.filter(p=>p.stato==='attesa_contanti')
+    let n=0
+    const righe=att.map(function(p){
+      n++; const rif='P'+n
+      const met=(p.metodo==='bonifico')?'bonifico':'contanti'
+      const imp=(Number(p.importo_pagato)||0).toFixed(2).replace('.',',')
+      const titolo=(p.prodotto_nome||'Vendita')+' \u00b7 '+(p.cliente_nome||p.venditore_nome||'\u2014')
+      const quando='\u20ac '+imp+' \u00b7 '+met+' \u00b7 '+String(p.created_at||'').slice(0,10)
+      _CBOT_REF[rif]={ id:p.id, titolo:titolo, quando:quando }
+      return '['+rif+'] '+titolo+' \u00b7 \u20ac '+imp+' \u00b7 '+met+' \u00b7 del '+String(p.created_at||'').slice(0,10)
+    })
+    R.push('Incassi da confermare ('+att.length+'):')
+    R.push(att.length?righe.join('\n'):'- nessuno')
   }catch(e){}
   try{
     const b=await db.from('buste_paga').select('*').limit(50)
@@ -653,6 +665,34 @@ async function _cbotRiepilogo(){
   }catch(e){}
   return R.join('\n')
  }
+async function _cbotEsegui(az){ 
+  const R=_CBOT_REF[az.rif]||null
+  if(az.tipo==='conferma_incasso'||az.tipo==='rifiuta_incasso'){
+    if(!R) return '\u26a0\ufe0f Non trovo quell\u0027incasso. Dimmi quale.'
+    const fn=(az.tipo==='conferma_incasso')?confermaIncassoDip:rifiutaIncassoDip
+    if(typeof fn!=='function') return '\u26a0\ufe0f Azione non disponibile.'
+    const avviso=await _cbotSilenzioso(function(){ return fn(R.id) })
+    if(avviso) return '\u26a0\ufe0f '+esc(avviso)
+    const ok=(az.tipo==='conferma_incasso')
+      ? '\u2705 Incasso confermato: la vendita risulta PAGATA.'
+      : '\u274c Incasso rifiutato: non risulta pagata.'
+    return ok+'<br><span style="color:#888;font-size:12px">'+esc(R.titolo)+' \u00b7 '+esc(R.quando)+'</span>'
+  }
+  return '\u26a0\ufe0f Azione non riconosciuta.'
+ }
+
+// esegue una funzione del portale zittendo le sue finestrelle
+// (la conferma l'abbiamo gia' chiesta noi) e catturando l'eventuale avviso
+async function _cbotSilenzioso(fn){
+  const oc=window.confirm, oa=window.alert
+  let avviso=''
+  window.confirm=function(){ return true }
+  window.alert=function(m){ avviso=String(m||'') }
+  try{ await fn() }
+  catch(e){ avviso=avviso||((e&&e.message)||String(e)) }
+  finally{ window.confirm=oc; window.alert=oa }
+  return avviso
+}
 
 function cbotToggle(){
   const p=document.getElementById('cbot-panel'); if(!p) return
@@ -685,43 +725,132 @@ function cbotBenvenuto(){
   _cbotChips(CBOT_CHIPS)
 }
 
-// ---- proposta di azione: l'AI la prepara, l'utente la conferma ----
+// --------- date in italiano ---------
+function _cbotData(iso, ora){
+  try{
+    const d=new Date(iso+'T00:00:00'); if(ora!=null) d.setHours(Number(ora),0,0,0)
+    const g=d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'})
+    return g+(ora!=null?(' alle '+('0'+Number(ora)).slice(-2)+':00'):'')
+  }catch(e){ return iso+(ora!=null?(' alle '+ora+':00'):'') }
+}
+function _cbotQuando(isoTs){
+  try{
+    const d=new Date(isoTs)
+    return d.toLocaleDateString('it-IT',{weekday:'long',day:'numeric',month:'long'})+' alle '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})
+  }catch(e){ return String(isoTs||'') }
+}
+const _CBOT_GIORNI=['','luned\u00ec','marted\u00ec','mercoled\u00ec','gioved\u00ec','venerd\u00ec','sabato','domenica']
+
+// --------- la schedina di conferma ---------
+// Il testo lo scrive IL PORTALE con i dati veri, non l'AI: cosi' quello che
+// leggi e' esattamente quello che succedera'.
+function _cbotDescrivi(az){
+  const R=_CBOT_REF[az.rif]||_CBOT_REF[az.rif_docente]||null
+  switch(az.tipo){
+    case 'richiesta_admin':
+    case 'richiesta_amministrazione':
+      return { titolo:'\u2709\ufe0f RICHIESTA ALL\u0027AMMINISTRAZIONE', ok:'Invia',
+        corpo:'<div style="font-size:13px;margin-bottom:6px"><b>Oggetto:</b> '+esc(az.oggetto||'')+'</div>'
+             +'<div style="font-size:12.5px;color:#444;background:#f7f7f4;border-radius:9px;padding:9px 10px;white-space:pre-wrap;max-height:150px;overflow-y:auto">'+esc(az.testo||'')+'</div>' }
+    case 'sposta_lezione':
+      if(!R) return null
+      return { titolo:'\ud83d\udd04 SPOSTA LEZIONE', ok:'Sposta',
+        corpo:'<div style="font-size:13px"><b>'+esc(R.titolo)+'</b></div>'
+             +'<div style="font-size:12.5px;color:#888;text-decoration:line-through;margin:4px 0">'+esc(R.quando)+'</div>'
+             +'<div style="font-size:13.5px;color:#F22015;font-weight:600">\u2192 '+esc(_cbotData(az.data, az.ora))+'</div>' }
+    case 'cancella_lezione':
+      if(!R) return null
+      return { titolo:'\u274c CANCELLA LEZIONE', ok:'Cancella',
+        corpo:'<div style="font-size:13px"><b>'+esc(R.titolo)+'</b></div>'
+             +'<div style="font-size:12.5px;color:#666;margin-top:4px">'+esc(R.quando)+'</div>' }
+    case 'apri_prenotazione':
+      if(!R) return null
+      return { titolo:'\ud83d\udcc5 PRENOTA UNA LEZIONE', ok:'Apri',
+        corpo:'<div style="font-size:13px"><b>'+esc(R.titolo)+'</b></div>'
+             +'<div style="font-size:13.5px;color:#F22015;font-weight:600;margin-top:4px">'+esc(_cbotData(az.data, az.ora))+'</div>'
+             +'<div style="font-size:12px;color:#888;margin-top:6px">Ti apro il modulo gi\u00e0 compilato: scegli il pagamento e premi Prenota.</div>' }
+    case 'accetta_richiesta':
+      if(!R) return null
+      return { titolo:'\u2705 ACCETTA RICHIESTA', ok:'Accetta',
+        corpo:'<div style="font-size:13px"><b>'+esc(R.titolo)+'</b></div><div style="font-size:12.5px;color:#666;margin-top:4px">'+esc(R.quando)+'</div><div style="font-size:12px;color:#888;margin-top:6px">La lezione viene confermata e lo studente avvisato.</div>' }
+    case 'rifiuta_richiesta':
+      if(!R) return null
+      return { titolo:'\u274c RIFIUTA RICHIESTA', ok:'Rifiuta',
+        corpo:'<div style="font-size:13px"><b>'+esc(R.titolo)+'</b></div><div style="font-size:12.5px;color:#666;margin-top:4px">'+esc(R.quando)+'</div><div style="font-size:12px;color:#888;margin-top:6px">Lo studente verr\u00e0 avvisato.</div>' }
+    case 'segna_svolta':
+      if(!R) return null
+      return { titolo:'\u2714\ufe0f SEGNA COME SVOLTA', ok:'Conferma',
+        corpo:'<div style="font-size:13px"><b>'+esc(R.titolo)+'</b></div><div style="font-size:12.5px;color:#666;margin-top:4px">'+esc(R.quando)+'</div><div style="font-size:12px;color:#888;margin-top:6px">Le ore verranno scalate dal pacchetto dello studente.</div>' }
+    case 'segna_assente':
+      if(!R) return null
+      return { titolo:'\ud83d\udeab SEGNA ASSENTE', ok:'Conferma',
+        corpo:'<div style="font-size:13px"><b>'+esc(R.titolo)+'</b></div><div style="font-size:12.5px;color:#666;margin-top:4px">'+esc(R.quando)+'</div>' }
+    case 'imposta_disponibilita': {
+      const gg=(az.giorni||[]).map(n=>_CBOT_GIORNI[Number(n)]||'').filter(Boolean).join(', ')
+      const tolgo=(az.azione==='togli')
+      return { titolo:(tolgo?'\ud83d\uddd3\ufe0f TOGLI DISPONIBILIT\u00c0':'\ud83d\uddd3\ufe0f AGGIUNGI DISPONIBILIT\u00c0'), ok:(tolgo?'Togli':'Aggiungi'),
+        corpo:'<div style="font-size:13px">Ogni settimana, <b>'+esc(gg||'\u2014')+'</b></div>'
+             +'<div style="font-size:13.5px;color:#F22015;font-weight:600;margin-top:4px">dalle '+('0'+Number(az.da_ora)).slice(-2)+':00 alle '+('0'+Number(az.a_ora)).slice(-2)+':00</div>'
+             +'<div style="font-size:12px;color:#888;margin-top:6px">'+(tolgo?'Non sarai pi\u00f9 prenotabile in queste fasce.':'Gli studenti potranno prenotarti in queste fasce.')+'</div>' }
+    }
+    case 'conferma_incasso':
+      if(!R) return null
+      return { titolo:'\ud83d\udcb0 CONFERMA INCASSO', ok:'Conferma',
+        corpo:'<div style="font-size:13px"><b>'+esc(R.titolo)+'</b></div><div style="font-size:12.5px;color:#666;margin-top:4px">'+esc(R.quando)+'</div><div style="font-size:12px;color:#888;margin-top:6px">La vendita risulter\u00e0 PAGATA.</div>' }
+    case 'rifiuta_incasso':
+      if(!R) return null
+      return { titolo:'\u274c RIFIUTA INCASSO', ok:'Rifiuta',
+        corpo:'<div style="font-size:13px"><b>'+esc(R.titolo)+'</b></div><div style="font-size:12.5px;color:#666;margin-top:4px">'+esc(R.quando)+'</div><div style="font-size:12px;color:#888;margin-top:6px">Non risulter\u00e0 pagata.</div>' }
+  }
+  return null
+}
+
 function _cbotAzione(az){
-  if(!az || az.tipo!=='richiesta_admin') return
+  const d=_cbotDescrivi(az)
+  if(!d){
+    _cbotAdd('\u26a0\ufe0f Non ho capito con precisione a cosa ti riferisci, quindi non faccio nulla. Puoi dirmelo in modo pi\u00f9 preciso?','bot')
+    _cbotChips(CBOT_CHIPS); return
+  }
   _CBOT_AZ=az
   const box=document.getElementById('cbot-msgs'); if(!box) return
   const old=document.getElementById('cbot-az'); if(old) old.remove()
-  const d=document.createElement('div'); d.id='cbot-az'
-  d.style.cssText='margin:2px 0 12px;background:#fff;border:1.5px solid #F22015;border-radius:14px;padding:12px'
-  d.innerHTML='<div style="font-weight:700;font-size:11px;color:#F22015;letter-spacing:.4px;margin-bottom:8px">\u2709\ufe0f RICHIESTA ALL\u0027AMMINISTRAZIONE</div>'
-    +'<div style="font-size:13px;margin-bottom:6px"><b>Oggetto:</b> '+esc(az.oggetto)+'</div>'
-    +'<div style="font-size:12.5px;color:#444;background:#f7f7f4;border-radius:9px;padding:9px 10px;white-space:pre-wrap;margin-bottom:11px;max-height:150px;overflow-y:auto">'+esc(az.testo)+'</div>'
-    +'<div style="display:flex;gap:8px"><button onclick="cbotConferma()" style="flex:1;background:#F22015;color:#fff;border:none;border-radius:9px;padding:9px;font-size:13px;font-weight:700;cursor:pointer">Invia</button>'
+  const el=document.createElement('div'); el.id='cbot-az'
+  el.style.cssText='margin:2px 0 12px;background:#fff;border:1.5px solid #F22015;border-radius:14px;padding:12px'
+  el.innerHTML='<div style="font-weight:700;font-size:11px;color:#F22015;letter-spacing:.4px;margin-bottom:8px">'+d.titolo+'</div>'
+    +d.corpo
+    +'<div style="display:flex;gap:8px;margin-top:11px"><button onclick="cbotConferma()" style="flex:1;background:#F22015;color:#fff;border:none;border-radius:9px;padding:9px;font-size:13px;font-weight:700;cursor:pointer">'+esc(d.ok)+'</button>'
     +'<button onclick="cbotAnnulla()" style="flex:1;background:#fff;color:#666;border:1px solid #d8d8d2;border-radius:9px;padding:9px;font-size:13px;cursor:pointer">Annulla</button></div>'
-  box.appendChild(d); box.scrollTop=box.scrollHeight
+  box.appendChild(el); box.scrollTop=box.scrollHeight
+  _cbotChips([])
 }
+
 async function cbotConferma(){
   const az=_CBOT_AZ; if(!az) return
   const c=document.getElementById('cbot-az'); if(c) c.remove()
   _CBOT_AZ=null
   const typing=_cbotTyping(true)
+  let esito=''
   try{
-    const { data, error } = await db.functions.invoke('richiesta-admin', { body:{ area:CBOT_AREA, nome:_cbotNome(), oggetto:az.oggetto, testo:az.testo } })
-    _cbotTyping(false, typing)
-    if(error || !data || data.error) throw (error||new Error('errore'))
-    _cbotAdd('\u2705 Richiesta inviata all\u0027amministrazione. Ti rispondiamo via email appena possibile.','bot')
-    _cbotHist.push({role:'assistant',content:'(la richiesta e\u0027 stata inviata all\u0027amministrazione)'})
+    if(az.tipo==='richiesta_admin'||az.tipo==='richiesta_amministrazione'){
+      const { data, error } = await db.functions.invoke('richiesta-admin', { body:{ area:CBOT_AREA, nome:_cbotNome(), oggetto:az.oggetto, testo:az.testo } })
+      if(error || !data || data.error) throw (error||new Error('errore'))
+      esito='\u2705 Richiesta inviata all\u0027amministrazione. Ti rispondiamo via email appena possibile.'
+    } else {
+      esito=await _cbotEsegui(az)
+    }
   }catch(e){
-    _cbotTyping(false, typing)
-    _cbotAdd('\u26a0\ufe0f Non sono riuscito a inviare la richiesta. Riprova, oppure scrivi a <a href="mailto:amministrazione@leoneconsultingitalia.it" style="color:#F22015">amministrazione@leoneconsultingitalia.it</a>','bot')
+    esito='\u26a0\ufe0f Non ci sono riuscito: '+esc((e&&e.message)||String(e))
   }
+  _cbotTyping(false, typing)
+  _cbotAdd(esito||'\u2705 Fatto.','bot')
+  _cbotHist.push({role:'assistant',content:'(azione eseguita: '+az.tipo+' \u2014 esito: '+String(esito).replace(/<[^>]*>/g,'')+')'})
   _cbotChips(CBOT_CHIPS)
 }
 function cbotAnnulla(){
   const c=document.getElementById('cbot-az'); if(c) c.remove()
   _CBOT_AZ=null
-  _cbotAdd('Va bene, non ho inviato nulla. \ud83d\udc4d','bot')
-  _cbotHist.push({role:'assistant',content:'(l\u0027utente ha annullato la richiesta)'})
+  _cbotAdd('Va bene, non ho fatto nulla. \ud83d\udc4d','bot')
+  _cbotHist.push({role:'assistant',content:'(l\u0027utente ha annullato l\u0027azione)'})
   _cbotChips(CBOT_CHIPS)
 }
 
@@ -740,8 +869,8 @@ async function cbotSend(){
     if(error || !data || (!data.reply && !data.azione)) throw (error||new Error('no reply'))
     const reply=String(data.reply||'')
     if(reply){ _cbotAdd(_cbotFmt(reply),'bot'); _cbotHist.push({role:'assistant',content:reply}) }
-    if(data.azione){ _cbotAzione(data.azione); _cbotChips([]) }
-    else { _cbotChips(CBOT_CHIPS) }
+    if(data.azione) _cbotAzione(data.azione)
+    else _cbotChips(CBOT_CHIPS)
   }catch(e){
     _cbotTyping(false, typing)
     _cbotAdd('\u26a0\ufe0f Non riesco a rispondere in questo momento. Riprova tra poco, oppure scrivi a <a href="mailto:amministrazione@leoneconsultingitalia.it" style="color:#F22015">amministrazione@leoneconsultingitalia.it</a> o chiama il 379 126 4864.','bot'); _cbotChips(CBOT_CHIPS)

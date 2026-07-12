@@ -622,5 +622,157 @@ async function caricaMieiPagamenti(){
 // ---- INIT (ritorno da conferma email) ----
 ;(async ()=>{ try{ const { data } = await db.auth.getSession(); if(data && data.session){ await avvia(data.session) } }catch(e){} })()
 </script>
+<script>
+// ===== ASSISTENTE AI LEONE (dipendenti) =====
+const CBOT_AREA='dipendenti'
+const CBOT_CHIPS=['Le mie provvigioni','I miei documenti','Le mie buste paga','Incassi da confermare','Scrivi all\u0027amministrazione']
+let _cbotInit=false, _cbotHist=[], _CBOT_AZ=null
+
+function _cbotNome(){ return (MIO_D&&MIO_D.nome)||(typeof MIO_EMAIL!=='undefined'?MIO_EMAIL:'')||'' }
+async function _cbotRiepilogo(){ 
+  const R=[]
+  const nome=(MIO_D&&MIO_D.nome)||''
+  if(nome) R.push('Nome: '+nome)
+  if(MIO_D&&MIO_D.ruolo) R.push('Ruolo: '+MIO_D.ruolo)
+  if(typeof MIO_EMAIL!=='undefined'&&MIO_EMAIL) R.push('Email: '+MIO_EMAIL)
+  try{
+    const r=await db.from('pagamenti').select('*').order('created_at',{ascending:false}).limit(100)
+    const rows=(r.data||[])
+    const prov=rows.reduce((s,p)=>s+(p.uso_personale?0:(Number(p.provvigione_importo)||0)),0)
+    const attesa=rows.filter(p=>p.stato==='attesa_contanti').length
+    R.push('Vendite visibili: '+rows.length)
+    R.push('Provvigioni totali: \u20ac '+(Math.round(prov*100)/100).toFixed(2).replace('.',','))
+    if(attesa) R.push('Incassi da confermare (contanti/bonifico): '+attesa)
+    const fatt=rows.filter(p=>p.fattura_numero).length
+    R.push('Fatture emesse visibili nella sezione Documenti: '+fatt)
+  }catch(e){}
+  try{
+    const b=await db.from('buste_paga').select('*').limit(50)
+    const mie=(b.data||[]).map(x=>x.data||{}).filter(x=>String(x.nomeDip||'').trim().toLowerCase()===String(nome).trim().toLowerCase())
+    R.push('Buste paga disponibili: '+mie.length+(mie.length?(' (ultima: '+(mie[0].mese||'')+')'):''))
+  }catch(e){}
+  return R.join('\n')
+ }
+
+function cbotToggle(){
+  const p=document.getElementById('cbot-panel'); if(!p) return
+  const open=p.style.display==='flex'
+  p.style.display=open?'none':'flex'
+  if(!open && !_cbotInit){ _cbotInit=true; cbotBenvenuto() }
+}
+function _cbotAdd(txt, who){
+  const box=document.getElementById('cbot-msgs'); if(!box) return
+  const mine=who==='me'
+  const div=document.createElement('div')
+  div.style.cssText='margin-bottom:10px;display:flex;'+(mine?'justify-content:flex-end':'justify-content:flex-start')
+  div.innerHTML='<div style="max-width:80%;padding:9px 12px;border-radius:14px;'+(mine?'background:#F22015;color:#fff;border-bottom-right-radius:4px':'background:#fff;color:#1a1a18;border:1px solid #ececea;border-bottom-left-radius:4px')+'">'+txt+'</div>'
+  box.appendChild(div); box.scrollTop=box.scrollHeight
+}
+function _cbotChips(list){
+  const c=document.getElementById('cbot-chips'); if(!c) return
+  c.innerHTML=(list||[]).map(t=>'<button onclick="cbotQuick(\''+t.replace(/'/g,"\\'")+'\')" style="background:#fff;border:1px solid #d8d8d2;border-radius:16px;padding:6px 11px;font-size:12px;cursor:pointer;color:#171819">'+t+'</button>').join('')
+}
+function cbotQuick(t){ const i=document.getElementById('cbot-input'); if(!i) return; i.value=t; cbotSend() }
+function _cbotTyping(on, node){
+  const box=document.getElementById('cbot-msgs'); if(!box) return null
+  if(on){ const d=document.createElement('div'); d.style.cssText='margin-bottom:10px;display:flex;justify-content:flex-start'; d.innerHTML='<div style="padding:9px 12px;border-radius:14px;background:#fff;border:1px solid #ececea;color:#999">sta scrivendo\u2026</div>'; box.appendChild(d); box.scrollTop=box.scrollHeight; return d }
+  if(node&&node.remove) node.remove(); return null
+}
+function _cbotFmt(s){ return esc(String(s)).replace(/\n/g,'<br>') }
+function cbotBenvenuto(){
+  const nome=(_cbotNome()||'').split(' ')[0]||''
+  _cbotAdd('Ciao'+(nome?(' '+esc(nome)):'')+'! \ud83d\udc4b Sono l\u0027assistente di Leone Consulting. Come posso aiutarti?','bot')
+  _cbotChips(CBOT_CHIPS)
+}
+
+// ---- proposta di azione: l'AI la prepara, l'utente la conferma ----
+function _cbotAzione(az){
+  if(!az || az.tipo!=='richiesta_admin') return
+  _CBOT_AZ=az
+  const box=document.getElementById('cbot-msgs'); if(!box) return
+  const old=document.getElementById('cbot-az'); if(old) old.remove()
+  const d=document.createElement('div'); d.id='cbot-az'
+  d.style.cssText='margin:2px 0 12px;background:#fff;border:1.5px solid #F22015;border-radius:14px;padding:12px'
+  d.innerHTML='<div style="font-weight:700;font-size:11px;color:#F22015;letter-spacing:.4px;margin-bottom:8px">\u2709\ufe0f RICHIESTA ALL\u0027AMMINISTRAZIONE</div>'
+    +'<div style="font-size:13px;margin-bottom:6px"><b>Oggetto:</b> '+esc(az.oggetto)+'</div>'
+    +'<div style="font-size:12.5px;color:#444;background:#f7f7f4;border-radius:9px;padding:9px 10px;white-space:pre-wrap;margin-bottom:11px;max-height:150px;overflow-y:auto">'+esc(az.testo)+'</div>'
+    +'<div style="display:flex;gap:8px"><button onclick="cbotConferma()" style="flex:1;background:#F22015;color:#fff;border:none;border-radius:9px;padding:9px;font-size:13px;font-weight:700;cursor:pointer">Invia</button>'
+    +'<button onclick="cbotAnnulla()" style="flex:1;background:#fff;color:#666;border:1px solid #d8d8d2;border-radius:9px;padding:9px;font-size:13px;cursor:pointer">Annulla</button></div>'
+  box.appendChild(d); box.scrollTop=box.scrollHeight
+}
+async function cbotConferma(){
+  const az=_CBOT_AZ; if(!az) return
+  const c=document.getElementById('cbot-az'); if(c) c.remove()
+  _CBOT_AZ=null
+  const typing=_cbotTyping(true)
+  try{
+    const { data, error } = await db.functions.invoke('richiesta-admin', { body:{ area:CBOT_AREA, nome:_cbotNome(), oggetto:az.oggetto, testo:az.testo } })
+    _cbotTyping(false, typing)
+    if(error || !data || data.error) throw (error||new Error('errore'))
+    _cbotAdd('\u2705 Richiesta inviata all\u0027amministrazione. Ti rispondiamo via email appena possibile.','bot')
+    _cbotHist.push({role:'assistant',content:'(la richiesta e\u0027 stata inviata all\u0027amministrazione)'})
+  }catch(e){
+    _cbotTyping(false, typing)
+    _cbotAdd('\u26a0\ufe0f Non sono riuscito a inviare la richiesta. Riprova, oppure scrivi a <a href="mailto:amministrazione@leoneconsultingitalia.it" style="color:#F22015">amministrazione@leoneconsultingitalia.it</a>','bot')
+  }
+  _cbotChips(CBOT_CHIPS)
+}
+function cbotAnnulla(){
+  const c=document.getElementById('cbot-az'); if(c) c.remove()
+  _CBOT_AZ=null
+  _cbotAdd('Va bene, non ho inviato nulla. \ud83d\udc4d','bot')
+  _cbotHist.push({role:'assistant',content:'(l\u0027utente ha annullato la richiesta)'})
+  _cbotChips(CBOT_CHIPS)
+}
+
+async function cbotSend(){
+  const inp=document.getElementById('cbot-input'); if(!inp) return
+  const t=(inp.value||'').trim(); if(!t) return
+  _cbotAdd(esc(t),'me'); inp.value=''
+  _cbotHist.push({role:'user',content:t})
+  const typing=_cbotTyping(true)
+  try{
+    let riep=''
+    try{ riep=await _cbotRiepilogo() }catch(e){ riep='' }
+    const ctx={ nome:_cbotNome()||'', riepilogo:riep||'' }
+    const { data, error } = await db.functions.invoke('assistente', { body:{ area:CBOT_AREA, message:t, history:_cbotHist.slice(-8), ctx } })
+    _cbotTyping(false, typing)
+    if(error || !data || (!data.reply && !data.azione)) throw (error||new Error('no reply'))
+    const reply=String(data.reply||'')
+    if(reply){ _cbotAdd(_cbotFmt(reply),'bot'); _cbotHist.push({role:'assistant',content:reply}) }
+    if(data.azione){ _cbotAzione(data.azione); _cbotChips([]) }
+    else { _cbotChips(CBOT_CHIPS) }
+  }catch(e){
+    _cbotTyping(false, typing)
+    _cbotAdd('\u26a0\ufe0f Non riesco a rispondere in questo momento. Riprova tra poco, oppure scrivi a <a href="mailto:amministrazione@leoneconsultingitalia.it" style="color:#F22015">amministrazione@leoneconsultingitalia.it</a> o chiama il 379 126 4864.','bot'); _cbotChips(CBOT_CHIPS)
+  }
+}
+
+setInterval(function(){
+  try{
+    const l=document.getElementById('cbot-launch'); if(!l) return
+    const on=!!(typeof MIO_D!=='undefined' && MIO_D)
+    l.style.display = on ? 'flex' : 'none'
+    if(!on){ const p=document.getElementById('cbot-panel'); if(p) p.style.display='none' }
+  }catch(e){}
+}, 1000)
+
+</script>
+
+<!-- ===== ASSISTENTE AI ===== -->
+<div id="cbot-launch" onclick="cbotToggle()" style="display:none;position:fixed;right:18px;bottom:18px;z-index:9999;width:56px;height:56px;border-radius:50%;background:#F22015;color:#fff;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:26px">&#128172;</div>
+<div id="cbot-panel" style="display:none;position:fixed;right:18px;bottom:84px;z-index:9999;width:340px;max-width:calc(100vw - 36px);height:480px;max-height:calc(100vh - 120px);background:#fff;border-radius:16px;box-shadow:0 12px 40px rgba(0,0,0,.28);flex-direction:column;overflow:hidden">
+  <div style="background:#171819;color:#fff;padding:13px 16px;display:flex;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;gap:9px"><div style="width:30px;height:30px;border-radius:50%;background:#F22015;display:flex;align-items:center;justify-content:center;font-size:16px">&#129409;</div><div><div style="font-weight:700;font-size:14px">Assistente Leone</div><div style="font-size:11px;opacity:.7">Sempre qui per te</div></div></div>
+    <div onclick="cbotToggle()" style="cursor:pointer;font-size:20px;opacity:.8">&times;</div>
+  </div>
+  <div id="cbot-msgs" style="flex:1;overflow-y:auto;padding:14px;background:#f7f7f4;font-size:13.5px;line-height:1.5"></div>
+  <div id="cbot-chips" style="padding:6px 10px;display:flex;gap:6px;flex-wrap:wrap;background:#f7f7f4;border-top:1px solid #ececea"></div>
+  <div style="display:flex;gap:8px;padding:10px;border-top:1px solid #ececea;background:#fff">
+    <input id="cbot-input" placeholder="Scrivi qui..." onkeydown="if(event.key==='Enter')cbotSend()" style="flex:1;border:1px solid #d8d8d2;border-radius:20px;padding:9px 14px;font-size:13.5px;font-family:inherit;outline:none">
+    <button onclick="cbotSend()" style="background:#F22015;color:#fff;border:none;border-radius:50%;width:38px;height:38px;cursor:pointer;font-size:16px">&#10148;</button>
+  </div>
+</div>
+
 </body>
 </html>

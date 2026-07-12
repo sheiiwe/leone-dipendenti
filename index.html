@@ -73,9 +73,19 @@ a{color:var(--blu)}
   <button id="nv-documenti" onclick="vai('documenti')">Documenti</button>
   <button id="nv-listino" onclick="vai('listino')">Listino</button>
   <button id="nv-pagamenti" onclick="vai('pagamenti')">Pagamenti</button>
+  <button id="nv-candidature" onclick="vai('candidature')">Candidature<span id="cand-dot" style="display:none;margin-left:6px;background:#F22015;color:#fff;font-size:10px;font-weight:700;border-radius:10px;padding:1px 6px">0</span></button>
 </div>
 
 <div id="screen-profilo" class="wrap hidden"></div>
+<div id="screen-candidature" class="wrap hidden">
+  <div class="card">
+    <h2>Candidature</h2>
+    <p class="muted" style="margin-top:-4px">Le persone che si sono candidate dal sito.</p>
+    <div style="display:flex;gap:8px;margin:12px 0 4px;flex-wrap:wrap" id="cand-aree"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px" id="cand-stati"></div>
+  </div>
+  <div id="cand-lista"></div>
+</div>
 <div id="screen-bacheca" class="wrap hidden"><div id="bacheca-lista"></div></div>
 <div id="screen-buste" class="wrap hidden"><div id="buste-lista"></div></div>
 
@@ -211,8 +221,162 @@ async function avvia(session){
   show('mainnav'); vai('profilo')
 }
 
+
+// ===== CANDIDATURE =====
+// Il dipendente fa le veci dell'amministrazione: le legge tutte e le lavora.
+// Cancellarle no: quello resta a Leonardo dall'app.
+let _CAND=[], _CAND_AREA='tutte', _CAND_STATO='aperte'
+
+const CAND_AREE=[
+  {id:'tutte', lab:'Tutte'},
+  {id:'proc',  lab:'Procacciatori'},
+  {id:'doc',   lab:'Docenti'},
+  {id:'dip',   lab:'Dipendenti'},
+]
+const CAND_STATI=[
+  {id:'nuova',      lab:'Nuova',      col:'#c0392b'},
+  {id:'contattato', lab:'Contattato', col:'#b9770e'},
+  {id:'colloquio',  lab:'Colloquio',  col:'#1f618d'},
+  {id:'assunto',    lab:'Preso',      col:'#1e8449'},
+  {id:'scartato',   lab:'Scartato',   col:'#7f8c8d'},
+]
+const CAND_RUOLI={proc:'Procacciatore',doc:'Docente',dip:'Dipendente'}
+
+function _candSt(id){ return CAND_STATI.find(x=>x.id===id)||CAND_STATI[0] }
+function _candQuando(iso){
+  if(!iso) return ''
+  const d=new Date(iso), gg=Math.floor((Date.now()-d.getTime())/86400000)
+  if(gg<=0) return 'oggi'
+  if(gg===1) return 'ieri'
+  if(gg<=7) return gg+' giorni fa'
+  return d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit'})
+}
+
+async function caricaCandidature(){
+  const box=document.getElementById('cand-lista'); if(!box) return
+  box.innerHTML='<p class="muted">Caricamento\u2026</p>'
+  try{
+    const r=await db.from('candidature').select('*').order('created_at',{ascending:false}).limit(300)
+    if(r.error) throw r.error
+    _CAND=r.data||[]
+  }catch(e){
+    _CAND=[]
+    box.innerHTML='<p class="muted">Non riesco a caricare le candidature. Riprova, oppure avvisa l\u0027amministrazione.</p>'
+    return
+  }
+  renderCandDip()
+}
+
+function setCandArea(a){ _CAND_AREA=a; renderCandDip() }
+function setCandStato(s){ _CAND_STATO=s; renderCandDip() }
+
+function renderCandDip(){
+  const box=document.getElementById('cand-lista'); if(!box) return
+
+  // pallino: quante nuove in tutto
+  const nuove=(_CAND||[]).filter(c=>c.stato==='nuova').length
+  const dot=document.getElementById('cand-dot')
+  if(dot){ dot.textContent=nuove; dot.style.display=nuove?'inline-block':'none' }
+
+  // filtro area
+  const ab=document.getElementById('cand-aree')
+  if(ab){
+    ab.innerHTML=CAND_AREE.map(function(a){
+      const n=(a.id==='tutte')?(_CAND||[]).length:(_CAND||[]).filter(c=>c.ruolo===a.id).length
+      const on=_CAND_AREA===a.id
+      return '<button class="btn'+(on?'':' btn-ghost')+'" style="font-size:12.5px;padding:6px 12px" onclick="setCandArea(\''+a.id+'\')">'+a.lab+' ('+n+')</button>'
+    }).join('')
+  }
+
+  let ll=(_CAND||[])
+  if(_CAND_AREA!=='tutte') ll=ll.filter(c=>c.ruolo===_CAND_AREA)
+
+  // filtro stato
+  const sb=document.getElementById('cand-stati')
+  if(sb){
+    const conta=function(f){
+      if(f==='aperte') return ll.filter(c=>c.stato!=='assunto'&&c.stato!=='scartato').length
+      if(f==='tutti') return ll.length
+      return ll.filter(c=>c.stato===f).length
+    }
+    const voci=[{id:'aperte',lab:'Aperte'}].concat(CAND_STATI.map(x=>({id:x.id,lab:x.lab}))).concat([{id:'tutti',lab:'Tutti'}])
+    sb.innerHTML=voci.map(function(v){
+      const on=_CAND_STATO===v.id
+      return '<button class="btn'+(on?'':' btn-ghost')+'" style="font-size:11.5px;padding:5px 10px" onclick="setCandStato(\''+v.id+'\')">'+v.lab+' ('+conta(v.id)+')</button>'
+    }).join('')
+  }
+
+  if(_CAND_STATO==='aperte') ll=ll.filter(c=>c.stato!=='assunto'&&c.stato!=='scartato')
+  else if(_CAND_STATO!=='tutti') ll=ll.filter(c=>c.stato===_CAND_STATO)
+
+  if(!ll.length){ box.innerHTML='<div class="card"><p class="muted">Nessuna candidatura in questa vista.</p></div>'; return }
+
+  box.innerHTML=ll.map(function(c){
+    const st=_candSt(c.stato)
+    const zona=[c.citta,c.provincia].filter(Boolean).join(' ')
+    const tel=(c.tel||'').replace(/\s/g,'')
+    const sel='<select onchange="cambiaStatoCand(\''+c.id+'\',this.value)" style="font-size:12px;border:1px solid #d8d8d2;border-radius:7px;padding:5px 8px;background:#fff">'
+      + CAND_STATI.map(x=>'<option value="'+x.id+'"'+(c.stato===x.id?' selected':'')+'>'+x.lab+'</option>').join('')
+      + '</select>'
+    return '<div class="card" style="margin-bottom:10px">'
+      + '<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;flex-wrap:wrap">'
+        + '<div style="min-width:0">'
+          + '<div style="font-weight:700;font-size:15.5px">'+esc(c.nome||'\u2014')+'</div>'
+          + '<div style="font-size:12.5px;color:#F22015;font-weight:600;margin-top:1px">'+esc(CAND_RUOLI[c.ruolo]||c.ruolo||'')+'</div>'
+        + '</div>'
+        + '<span style="font-size:10px;font-weight:700;color:'+st.col+';background:'+st.col+'22;padding:3px 9px;border-radius:20px;white-space:nowrap">'+st.lab.toUpperCase()+'</span>'
+      + '</div>'
+      + '<div style="font-size:13px;color:#555;margin-top:9px;line-height:1.7">'
+        + (c.email?('\u2709 <a href="mailto:'+esc(c.email)+'" style="color:#F22015">'+esc(c.email)+'</a><br>'):'')
+        + (c.tel?('\ud83d\udcde <a href="tel:'+esc(tel)+'" style="color:#F22015">'+esc(c.tel)+'</a><br>'):'')
+        + (zona?('\ud83d\udccd '+esc(zona)+'<br>'):'')
+        + (c.esperienza?('\ud83c\udf93 '+esc(c.esperienza)+'<br>'):'')
+        + '\ud83d\udd52 '+esc(_candQuando(c.created_at))
+      + '</div>'
+      + (c.messaggio?('<div style="background:#f7f7f4;border-left:3px solid #F22015;border-radius:8px;padding:9px 11px;margin-top:10px;font-size:12.5px;white-space:pre-wrap;color:#444">'+esc(c.messaggio)+'</div>'):'')
+      + (c.note_admin?('<div style="margin-top:8px;font-size:12.5px;color:#b9770e">\ud83d\udcdd '+esc(c.note_admin)+'</div>'):'')
+      + '<div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-wrap:wrap">'
+        + (c.cv_path?('<button class="btn" style="font-size:12.5px;padding:7px 13px" onclick="apriCV(\''+c.id+'\')">\ud83d\udcc4 Apri CV</button>'):'')
+        + '<button class="btn btn-ghost" style="font-size:12.5px;padding:7px 13px" onclick="notaCand(\''+c.id+'\')">\ud83d\udcdd Nota</button>'
+        + '<div style="margin-left:auto">'+sel+'</div>'
+      + '</div>'
+    + '</div>'
+  }).join('')
+}
+
+// Il CV sta in uno spazio privato: link temporaneo da un'ora, non un indirizzo pubblico.
+async function apriCV(id){
+  const c=(_CAND||[]).find(x=>x.id===id); if(!c||!c.cv_path) return
+  try{
+    const r=await db.storage.from('candidature').createSignedUrl(c.cv_path, 3600)
+    if(r.error||!r.data||!r.data.signedUrl) throw (r.error||new Error('link non creato'))
+    window.open(r.data.signedUrl,'_blank')
+  }catch(e){ alert('Non riesco ad aprire il CV: '+((e&&e.message)||e)) }
+}
+
+async function cambiaStatoCand(id, stato){
+  try{
+    const r=await db.from('candidature').update({ stato }).eq('id',id)
+    if(r.error) throw r.error
+    const c=(_CAND||[]).find(x=>x.id===id); if(c) c.stato=stato
+    renderCandDip()
+  }catch(e){ alert('Errore: '+((e&&e.message)||e)) }
+}
+
+async function notaCand(id){
+  const c=(_CAND||[]).find(x=>x.id===id); if(!c) return
+  const t=prompt('Nota su '+(c.nome||'questo candidato')+':', c.note_admin||'')
+  if(t===null) return
+  try{
+    const r=await db.from('candidature').update({ note_admin:t.trim()||null }).eq('id',id)
+    if(r.error) throw r.error
+    c.note_admin=t.trim()||null
+    renderCandDip()
+  }catch(e){ alert('Errore: '+((e&&e.message)||e)) }
+}
+
 // ---- NAV ----
-const _NV=['profilo','bacheca','buste','listino','pagamenti','documenti']
+const _NV=['profilo','bacheca','buste','listino','pagamenti','documenti','candidature']
 function vai(t){
   _NV.forEach(x=>{ const b=document.getElementById('nv-'+x); if(b) b.classList.toggle('on',x===t); const s=document.getElementById('screen-'+x); if(s) s.classList.toggle('hidden',x!==t) })
   window.scrollTo({top:0})
@@ -222,6 +386,7 @@ function vai(t){
   if(t==='listino') caricaListinoDip()
   if(t==='documenti') caricaDocumentiDip()
   if(t==='pagamenti'){ caricaProdottiVendibili(); caricaMieiPagamenti(); caricaDaConfermareDip() }
+  if(t==='candidature') caricaCandidature()
 }
 
 // ---- PROFILO ----

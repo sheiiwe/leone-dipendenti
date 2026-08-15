@@ -1,0 +1,40 @@
+.lc-passkey-login{margin-top:14px}
+.lc-passkey-divider{display:flex;align-items:center;gap:10px;color:#8d9096;font-size:11px;margin:2px 0 12px;text-transform:uppercase;letter-spacing:.08em}
+.lc-passkey-divider::before,.lc-passkey-divider::after{content:"";height:1px;background:rgba(138,143,151,.28);flex:1}
+.lc-passkey-login-btn{width:100%;min-height:45px;padding:11px 14px;border:1px solid rgba(145,150,160,.45);border-radius:9px;background:transparent;color:inherit;font:600 13px/1.2 inherit;display:flex;align-items:center;justify-content:center;gap:9px;cursor:pointer;transition:.18s ease}
+.lc-passkey-login-btn:hover:not(:disabled){border-color:#F22015;background:rgba(242,32,21,.06)}
+.lc-passkey-login-btn:focus-visible,.lc-passkey-account:focus-visible,.lc-passkey-add:focus-visible,.lc-passkey-remove:focus-visible,.lc-passkey-close:focus-visible{outline:3px solid rgba(242,32,21,.28);outline-offset:2px}
+.lc-passkey-login-btn:disabled{opacity:.55;cursor:not-allowed}
+.lc-passkey-login-btn.is-loading span:first-child{animation:lc-passkey-pulse .8s ease-in-out infinite alternate}
+.lc-passkey-login-message{min-height:16px;margin-top:8px;color:#c53a31;font-size:11.5px;line-height:1.35;text-align:center}
+.lc-passkey-login-message.is-ok{color:#2f7a45}
+@keyframes lc-passkey-pulse{to{opacity:.25;transform:scale(.9)}}
+.lc-passkey-account{position:fixed;right:18px;bottom:18px;z-index:990;min-height:42px;padding:10px 15px;border:0;border-radius:999px;background:#171719;color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.22);font:700 12px/1 inherit;display:flex;align-items:center;gap:7px;cursor:pointer}
+.lc-passkey-account[hidden]{display:none!important}
+.lc-passkey-account:hover{background:#F22015}
+.lc-passkey-modal[hidden]{display:none!important}
+.lc-passkey-modal{position:fixed;inset:0;z-index:2000;padding:18px;display:grid;place-items:center;background:rgba(8,9,12,.68);backdrop-filter:blur(5px)}
+body.lc-passkey-modal-open{overflow:hidden}
+.lc-passkey-dialog{position:relative;width:min(100%,520px);max-height:min(720px,calc(100vh - 36px));overflow:auto;border-radius:18px;background:#fff;color:#1c1c1e;padding:26px;box-shadow:0 24px 70px rgba(0,0,0,.34)}
+.lc-passkey-close{position:absolute;top:13px;right:13px;width:34px;height:34px;border:0;border-radius:50%;background:#f0f0f2;color:#333;font:500 24px/1 inherit;cursor:pointer}
+.lc-passkey-heading{display:flex;gap:13px;align-items:flex-start;padding-right:34px}
+.lc-passkey-heading-icon{display:grid;place-items:center;width:42px;height:42px;border-radius:12px;background:#fff0ef;font-size:20px;flex:0 0 auto}
+.lc-passkey-heading h2{font-size:20px;line-height:1.2;margin:0 0 5px;color:#171719}
+.lc-passkey-heading p{font-size:12.5px;line-height:1.45;color:#666;margin:0}
+.lc-passkey-notice{margin:18px 0 12px;padding:12px 13px;border-radius:10px;background:#f6f6f7;color:#555;font-size:12px;line-height:1.5}
+.lc-passkey-panel-message{min-height:18px;margin:5px 0;color:#b12c25;font-size:12px;line-height:1.4}
+.lc-passkey-panel-message.is-ok{color:#2f7a45}
+.lc-passkey-list-title{margin:12px 0 8px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:#666}
+.lc-passkey-list{display:grid;gap:8px;margin-bottom:16px}
+.lc-passkey-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;border:1px solid #e5e5e7;border-radius:11px}
+.lc-passkey-details{min-width:0;display:flex;flex-direction:column;gap:3px}
+.lc-passkey-details strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lc-passkey-details span{font-size:11px;color:#777}
+.lc-passkey-empty{padding:16px;border:1px dashed #d6d6d8;border-radius:11px;color:#777;font-size:12px;text-align:center}
+.lc-passkey-empty.is-error{color:#b12c25;border-color:#e8b9b6;background:#fff7f6}
+.lc-passkey-remove{border:1px solid #e5b4b0;border-radius:8px;background:#fff;color:#b12c25;padding:7px 10px;font:700 11px/1 inherit;cursor:pointer}
+.lc-passkey-remove:hover{background:#fff1f0}
+.lc-passkey-add{width:100%;min-height:45px;border:0;border-radius:10px;background:#F22015;color:#fff;padding:12px 15px;font:700 13px/1.2 inherit;cursor:pointer}
+.lc-passkey-add:hover:not(:disabled){background:#c81a11}
+.lc-passkey-add:disabled{opacity:.6;cursor:wait}
+@media(max-width:520px){.lc-passkey-account{right:12px;bottom:12px}.lc-passkey-dialog{padding:22px 18px}.lc-passkey-heading h2{font-size:18px}.lc-passkey-row{align-items:flex-start;flex-direction:column}.lc-passkey-remove{align-self:flex-end}}

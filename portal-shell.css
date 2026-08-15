@@ -1,0 +1,66 @@
+:root{
+  --portal-accent:#185fa5;
+  --portal-accent-dark:#0f4377;
+  --portal-sidebar:#1b1d21;
+  --portal-bg:#f4f5f3;
+  --portal-surface:#fff;
+  --portal-text:#1a1a18;
+  --portal-muted:#5a5a55;
+  --portal-border:#e6e6e1;
+  --portal-header-h:76px;
+  --portal-content-max:1180px;
+}
+
+html,body{max-width:100%;overflow-x:hidden}
+body{background:var(--portal-bg);color:var(--portal-text)}
+header.top,.header{min-height:var(--portal-header-h);padding:12px 22px;background:var(--portal-accent);color:#fff;position:sticky;top:0;z-index:20;display:flex;align-items:center;box-shadow:0 1px 0 rgba(0,0,0,.12)}
+header.top .wrap{width:100%;max-width:none;margin:0;padding:0;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.header .brand{display:flex;align-items:center;gap:12px}
+header.top h1,.header .brand h1{margin:0;color:#fff;font-size:18px;line-height:1.2;font-weight:700}
+header.top .sub,.header .brand p{margin:2px 0 0;color:rgba(255,255,255,.84);font-size:12px;font-weight:600}
+header.top .logo-sm,.header .logo-sm{width:48px;height:48px;border-radius:50%;background:#fff;object-fit:contain;padding:1px;flex:0 0 auto}
+.portal-head-left,.portal-head-actions{display:flex;align-items:center;gap:12px}
+.portal-head-actions{gap:8px;justify-content:flex-end}
+.portal-user-name{max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600}
+.logout,header.top .btn-ghost{width:auto;margin:0;padding:7px 12px;border:1px solid rgba(255,255,255,.5);border-radius:9px;background:transparent;color:#fff;font-size:12.5px;font-weight:600;line-height:1.2}
+.logout:hover,header.top .btn-ghost:hover{background:rgba(255,255,255,.14)}
+.app-shell{display:flex;align-items:flex-start;min-height:calc(100vh - var(--portal-header-h))}
+.app-sidebar{width:224px;flex:0 0 224px;height:calc(100vh - var(--portal-header-h));position:sticky;top:var(--portal-header-h);align-self:flex-start;overflow-y:auto;padding:14px 0 30px;background:var(--portal-sidebar);box-sizing:border-box;z-index:15}
+.app-sidebar .sb-head{padding:14px 18px 6px;color:#74777d;font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase}
+.app-sidebar .sb-head:first-child{padding-top:6px}
+.app-sidebar .tab{all:unset;width:100%;min-height:41px;padding:9px 18px;display:flex;align-items:center;gap:11px;border-left:3px solid transparent;color:#c6c8cc;font-size:13.5px;font-weight:600;cursor:pointer;box-sizing:border-box}
+.app-sidebar .tab:hover{background:rgba(255,255,255,.06);color:#fff}
+.app-sidebar .tab.on,.app-sidebar .tab.tab-on,.app-sidebar .tab.active{background:rgba(24,95,165,.24);border-left-color:var(--portal-accent);color:#fff}
+.app-sidebar .tab .ic{width:18px;flex:0 0 18px;text-align:center;font-size:15px}
+.app-main{flex:1;min-width:0;padding:20px 24px 48px;box-sizing:border-box}
+.app-main>.wrap,.app-main>.container{width:100%;max-width:var(--portal-content-max);margin:0 auto;padding:0}
+.app-main .card{border:1px solid var(--portal-border);border-top:3px solid var(--portal-accent);border-radius:14px;background:var(--portal-surface);box-shadow:0 1px 3px rgba(0,0,0,.04)}
+.app-main .btn{width:auto}
+.app-main .footer,.app-main .foot{text-align:center;color:#92928c;font-size:11.5px;padding:24px 0;margin:0}
+.sb-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:14}
+.sb-overlay.on{display:block}
+.hamb{display:none;align-items:center;justify-content:center;width:36px;height:36px;padding:0;border:0;border-radius:8px;background:rgba(255,255,255,.16);color:#fff;cursor:pointer;font-size:17px;flex:0 0 auto}
+.hamb:hover{background:rgba(255,255,255,.28)}
+.portal-admin-main{padding:20px 24px 48px}
+.portal-admin-main>.container,.portal-admin-main>.wrap{max-width:var(--portal-content-max);margin:0 auto;padding:0}
+@media(max-width:900px){
+  :root{--portal-header-h:68px}
+  header.top,.header{min-height:var(--portal-header-h);padding:10px 14px}
+  header.top .logo-sm,.header .logo-sm{width:42px;height:42px}
+  header.top h1,.header .brand h1{font-size:16px}
+  .portal-user-name{display:none}
+  .hamb{display:inline-flex}
+  .app-sidebar{position:fixed;top:0;left:0;height:100vh;transform:translateX(-100%);transition:transform .25s ease;box-shadow:2px 0 18px rgba(0,0,0,.3)}
+  .app-sidebar.open{transform:translateX(0)}
+  .app-main,.portal-admin-main{padding:14px 14px 40px}
+  .app-main .card{padding:18px;margin:14px 0}
+  .app-main table{display:block;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+}
+@media(max-width:520px){
+  header.top .sub,.header .brand p{font-size:11px}
+  header.top .logo-sm,.header .logo-sm{width:38px;height:38px}
+  .portal-head-left{gap:9px}.portal-head-actions{gap:6px}
+  .logout,header.top .btn-ghost{padding:7px 9px;font-size:11.5px}
+  .app-main,.portal-admin-main{padding:10px 10px 32px}
+  .app-main .card{padding:15px;border-radius:12px}
+}

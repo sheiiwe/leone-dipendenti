@@ -1,0 +1,254 @@
+/* Leone Consulting — login a due pannelli e ritaglio immagine */
+.lc-login-page{
+  position:fixed;
+  inset:0;
+  z-index:60;
+  width:100%;
+  max-width:none!important;
+  min-height:100dvh;
+  margin:0!important;
+  padding:0!important;
+  background:#111214;
+}
+.lc-login-shell{display:flex;min-height:100dvh;background:#111214;color:#fff}
+.lc-login-pane{
+  width:35%;
+  min-width:420px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:42px clamp(28px,4vw,76px);
+  background:#111214;
+  position:relative;
+  z-index:2;
+  overflow:auto;
+}
+.lc-login-content{width:100%;max-width:430px}
+.lc-login-brand{text-align:center;margin-bottom:28px}
+.lc-login-brand .js-logo{
+  display:block;
+  width:132px;
+  height:132px;
+  object-fit:contain;
+  margin:0 auto 12px;
+}
+.lc-login-brand h1{font-size:25px;line-height:1.15;color:#fff;margin:0 0 7px}
+.lc-login-brand p{font-size:13px;color:#a9abb0;margin:0;letter-spacing:.025em}
+.lc-login-visual{
+  flex:1;
+  min-width:0;
+  position:relative;
+  overflow:hidden;
+  isolation:isolate;
+  container-type:inline-size;
+  background:#fff;
+}
+.lc-hero-img{
+  position:absolute;
+  inset:0;
+  width:100%;
+  height:100%;
+  object-fit:cover;
+  object-position:var(--lc-hero-x,50%) var(--lc-hero-y,50%);
+  transform:scale(var(--lc-hero-zoom,1));
+  transform-origin:var(--lc-hero-x,50%) var(--lc-hero-y,50%);
+  will-change:transform;
+}
+.lc-login-shade{
+  display:none;
+  position:absolute;
+  inset:0;
+  z-index:1;
+  background:linear-gradient(90deg,rgba(17,18,20,.22),rgba(17,18,20,.04) 42%,rgba(17,18,20,.28));
+  pointer-events:none;
+}
+.lc-login-slogan{
+  position:absolute;
+  z-index:2;
+  left:clamp(24px,7cqw,92px);
+  right:clamp(24px,7cqw,92px);
+  top:50%;
+  transform:translateY(-50%);
+  color:#1d1d20;
+  font-size:clamp(27px,4.5cqw,62px);
+  font-weight:850;
+  line-height:1.01;
+  letter-spacing:-.045em;
+  text-align:center;
+  text-wrap:balance;
+  overflow-wrap:normal;
+  text-shadow:none;
+}
+.lc-login-slogan .lc-slogan-main,
+.lc-login-slogan .lc-slogan-accent{display:block}
+.lc-login-slogan .lc-slogan-accent{color:#ef2a27}
+.lc-login-empty{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:flex-end;
+  justify-content:flex-end;
+  padding:30px;
+  color:rgba(255,255,255,.42);
+  font-size:12px;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+}
+.lc-auth-mode header.top{display:none!important}
+.lc-auth-mode .app-main{padding:0!important}
+
+/* Adattamento dei moduli esistenti */
+.lc-login-pane .login-card,
+.lc-login-pane > .lc-login-content > .card{
+  width:100%!important;
+  max-width:none!important;
+  margin:0!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:0!important;
+  box-shadow:none!important;
+  background:transparent!important;
+  color:#fff;
+  overflow:visible;
+}
+.lc-login-pane .login-top{background:transparent!important;padding:0!important}
+.lc-login-pane .login-top .logo-img{width:132px;height:132px;margin:0 auto 12px}
+.lc-login-pane .login-body{padding:0!important}
+.lc-login-pane h2{color:#fff!important;text-align:center;font-size:23px;margin-bottom:8px}
+.lc-login-pane .muted,
+.lc-login-pane .hint{color:#a9abb0!important;text-align:center}
+.lc-login-pane label,
+.lc-login-pane .fg label{color:#d7d8db!important}
+.lc-login-pane input:not([type="checkbox"]):not([type="file"]),
+.lc-login-pane textarea,
+.lc-login-pane select,
+.lc-login-pane .fg input{
+  background:#181a1e!important;
+  color:#fff!important;
+  border:1px solid #3b3e45!important;
+  box-shadow:none!important;
+}
+.lc-login-pane input::placeholder,
+.lc-login-pane textarea::placeholder{color:#777b83}
+.lc-login-pane input:focus,
+.lc-login-pane textarea:focus,
+.lc-login-pane select:focus{
+  outline:none!important;
+  border-color:#F22015!important;
+  box-shadow:0 0 0 3px rgba(242,32,21,.12)!important;
+}
+.lc-login-pane .btn,
+.lc-login-pane .btn.btn-p,
+.lc-login-pane button#li-btn{
+  background:#F22015!important;
+  border-color:#F22015!important;
+  color:#fff!important;
+}
+.lc-login-pane .btn:hover,
+.lc-login-pane .btn.btn-p:hover,
+.lc-login-pane button#li-btn:hover{background:#cf1c13!important}
+.lc-login-pane .btn.ghost,
+.lc-login-pane #btn-signup{
+  background:transparent!important;
+  border-color:#555861!important;
+  color:#fff!important;
+}
+.lc-login-pane .err,
+.lc-login-pane .msg-err{color:#ffaaa5}
+.lc-login-pane .msg-err{background:rgba(242,32,21,.12);border-color:rgba(242,32,21,.36)}
+.lc-login-pane .msg-ok{background:rgba(42,157,92,.14);border-color:rgba(42,157,92,.38);color:#9ee0ba}
+.lc-login-pane .foot{color:#777b83;text-align:center;font-size:11px;margin-top:22px}
+.lc-login-pane #box-cand{padding-bottom:32px}
+.lc-login-pane .grid-checks label{color:#d7d8db!important}
+
+/* Editor amministratore */
+.lc-hero-admin-card{overflow:hidden}
+.lc-editor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:17px}
+.lc-editor-head h2{margin:0 0 5px!important;font-size:18px!important}
+.lc-editor-head p{margin:0;color:#6b6b66;font-size:13px;line-height:1.5}
+.lc-editor-badge{
+  flex:0 0 auto;
+  border-radius:999px;
+  padding:5px 10px;
+  background:#fff0ef;
+  color:#bf1a12;
+  font-size:11px;
+  font-weight:750;
+}
+.lc-editor-grid{display:grid;grid-template-columns:minmax(300px,1.35fr) minmax(240px,.65fr);gap:20px;align-items:start}
+.lc-editor-preview{
+  position:relative;
+  overflow:hidden;
+  aspect-ratio:16/9;
+  min-height:250px;
+  border-radius:12px;
+  background:#fff;
+  cursor:grab;
+  user-select:none;
+  touch-action:none;
+  container-type:inline-size;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.12);
+}
+.lc-editor-preview.is-dragging{cursor:grabbing}
+.lc-editor-preview .lc-login-slogan{font-size:clamp(22px,4.5cqw,40px)}
+.lc-editor-preview .lc-login-empty{padding:18px}
+.lc-editor-controls{display:flex;flex-direction:column;gap:14px}
+.lc-file-button,.lc-editor-button{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  width:100%;
+  border:0;
+  border-radius:9px;
+  padding:11px 14px;
+  font:600 13px/1.2 inherit;
+  cursor:pointer;
+}
+.lc-file-button{background:#26282d;color:#fff}
+.lc-file-button:hover{background:#111214}
+.lc-editor-button{background:#ececea;color:#282926}
+.lc-editor-button:hover{background:#dfdfdc}
+.lc-editor-button.lc-primary{background:#F22015;color:#fff}
+.lc-editor-button.lc-primary:hover{background:#cf1c13}
+.lc-editor-button:disabled{opacity:.55;cursor:not-allowed}
+.lc-control label{display:flex;justify-content:space-between;gap:10px;font-size:12px;font-weight:700;color:#42423f;margin-bottom:5px}
+.lc-control output{font-variant-numeric:tabular-nums;color:#777772}
+.lc-control input[type="range"]{width:100%;accent-color:#F22015}
+.lc-editor-help{
+  padding:10px 12px;
+  border-radius:9px;
+  background:#f5f5f1;
+  color:#666660;
+  font-size:11.5px;
+  line-height:1.5;
+}
+.lc-editor-actions{display:grid;grid-template-columns:1fr 1.2fr;gap:9px}
+.lc-editor-status{min-height:18px;font-size:12px;line-height:1.45}
+.lc-editor-status.ok{color:#287b48}
+.lc-editor-status.err{color:#b0251d}
+.lc-editor-current{font-size:11.5px;color:#777772;word-break:break-word}
+.lc-admin-only-header{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:14px}
+.lc-admin-only-header h1{margin:0;font-size:22px}
+.lc-admin-only-header p{margin:4px 0 0;color:#6b6b66;font-size:13px}
+
+@media(max-width:980px){
+  .lc-login-pane{width:42%;min-width:380px;padding:34px 28px}
+  .lc-editor-grid{grid-template-columns:1fr}
+}
+@media(max-width:760px){
+  .lc-login-page{position:fixed;overflow:auto}
+  .lc-login-shell{flex-direction:column;min-height:100dvh}
+  .lc-login-visual{order:0;flex:none;width:100%;height:32dvh;min-height:230px}
+  .lc-login-pane{order:1;width:100%;min-width:0;padding:28px 22px 42px;overflow:visible}
+  .lc-login-content{max-width:480px}
+  .lc-login-brand{margin-bottom:22px}
+  .lc-login-brand .js-logo,.lc-login-pane .login-top .logo-img{width:104px;height:104px}
+  .lc-login-slogan{left:7%;right:6%;font-size:clamp(25px,8cqw,42px)}
+  .lc-editor-preview{min-height:210px}
+  .lc-editor-head{flex-direction:column}
+}
+@media(max-width:460px){
+  .lc-editor-actions{grid-template-columns:1fr}
+  .lc-login-pane #btn-login,.lc-login-pane #btn-signup{flex-basis:100%!important}
+}
